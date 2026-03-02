@@ -175,7 +175,8 @@ document.head.appendChild(instantPagePreload);
         ],
         // Stylesheets to make non-render-blocking
         stylePatterns: [
-            /forumfree\.net\/.*\.css$/,
+            /forum(?:free|community)\.(?:net|it)\/.*\.css/,  // Match ANY css from forum domains
+            /cdn\.forumfree\.net\/.*\.css/,                  // Specifically match cdn subdomain
             /akcelo/,
             /tippy/
         ]
@@ -217,9 +218,11 @@ document.head.appendChild(instantPagePreload);
         link.media = 'print';
         link.onload = () => link.media = 'all';
         link.onerror = () => link.media = 'all';
+        
+        console.log('📄 Non-blocking CSS:', link.href);
     };
 
-    // Watch for new elements - renamed from 'observer' to 'scriptWatcher'
+    // Watch for new elements
     const scriptWatcher = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
@@ -240,7 +243,7 @@ document.head.appendChild(instantPagePreload);
         }
     });
 
-    // Start observing - using the renamed variable
+    // Start observing
     scriptWatcher.observe(document.documentElement, {
         childList: true,
         subtree: true

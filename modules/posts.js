@@ -1,6 +1,7 @@
 // modules/posts.js
 // Forum Modernizer - Posts Module (API-enhanced, all original functionality preserved)
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
+// ADDED: Relative timestamps + clickable post time (links to original post)
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -37,6 +38,54 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
     // Cache for user API data (MID -> user object)
     var userDataCache = new Map();
+
+    // ============================================================================
+    // RELATIVE TIME & DATE PARSING (replaces old getTimeAgo)
+    // ============================================================================
+    function parseDateFromTitle(title) {
+        if (!title) return null;
+        // Normalise title: remove extra colon+seconds (e.g., "10:13 PM:40" → "10:13 PM")
+        title = title.replace(/(\d{1,2}):(\d{2})\s*(AM|PM)?:(\d+)/i, '$1:$2 $3');
+        var hasMeridiem = /[ap]m/i.test(title);
+        var nums = title.match(/\d+/g);
+        if (!nums || nums.length < 3) return null;
+        var year, month, day, hour, minute, second;
+        if (hasMeridiem) {
+            // US: month/day/year, hour:minute AM/PM
+            month = parseInt(nums[0], 10) - 1;
+            day   = parseInt(nums[1], 10);
+            year  = parseInt(nums[2], 10);
+            hour  = parseInt(nums[3] || 0, 10);
+            minute = parseInt(nums[4] || 0, 10);
+            second = parseInt(nums[5] || 0, 10);
+            var isPM = /pm/i.test(title);
+            if (isPM && hour < 12) hour += 12;
+            if (!isPM && hour === 12) hour = 0;
+        } else {
+            // EU: day/month/year, 24h
+            day   = parseInt(nums[0], 10);
+            month = parseInt(nums[1], 10) - 1;
+            year  = parseInt(nums[2], 10);
+            hour  = parseInt(nums[3] || 0, 10);
+            minute = parseInt(nums[4] || 0, 10);
+            second = parseInt(nums[5] || 0, 10);
+        }
+        return new Date(year, month, day, hour, minute, second);
+    }
+
+    function getRelativeTimeString(date) {
+        if (!date || isNaN(date.getTime())) return 'Unknown';
+        var now = new Date();
+        var diff = (date - now) / 1000; // negative = past
+        var rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'en', { numeric: 'auto' });
+        var absDiff = Math.abs(diff);
+        if (absDiff < 60) return rtf.format(Math.floor(diff), 'second');
+        if (absDiff < 3600) return rtf.format(Math.floor(diff / 60), 'minute');
+        if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600), 'hour');
+        if (absDiff < 2592000) return rtf.format(Math.floor(diff / 86400), 'day');
+        if (absDiff < 31536000) return rtf.format(Math.floor(diff / 2592000), 'month');
+        return rtf.format(Math.floor(diff / 31536000), 'year');
+    }
 
     // ============================================================================
     // API USER DATA FETCHING
@@ -130,7 +179,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // HELPER FUNCTIONS (unchanged from original)
+    // HELPER FUNCTIONS
     // ============================================================================
     function getPostsContainer() {
         var modernContainer = document.getElementById('modern-posts-container');
@@ -174,7 +223,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // DATA EXTRACTION (original, unchanged)
+    // DATA EXTRACTION (original, unchanged except timestamp)
     // ============================================================================
     function getUsername($post) {
         var nickLink = $post.querySelector('.nick a');
@@ -305,19 +354,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
     function getPostNumber($post, index) { return index + 1; }
 
-    function getTimeAgo($post) {
-        var whenSpan = $post.querySelector('.when');
-        if (!whenSpan) return 'Recently';
-        var whenTitle = whenSpan.getAttribute('title');
-        if (!whenTitle) return 'Recently';
-        var postDate = new Date(whenTitle);
-        var now = new Date();
-        var diffDays = Math.floor((now - postDate) / 86400000);
-        if (diffDays >= 1) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
-        var diffHours = Math.floor((now - postDate) / 3600000);
-        if (diffHours >= 1) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
-        return 'Just now';
-    }
+    // getTimeAgo REMOVED – replaced by parseDateFromTitle + getRelativeTimeString
 
     // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)
@@ -547,8 +584,6 @@ var ForumPostsModule = (function(Utils, EventBus) {
         }, 200);
     }
 
-    function triggerOriginalReaction(postId, emoji) { /* not used directly */ }
-
     function handleReactionCountClick(pid) {
         var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
         if (!originalPost) return;
@@ -597,7 +632,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // GENERATE MODERN CARD (updated: avatar wrapper + status dot, join date)
+    // GENERATE MODERN CARD (updated: relative time + clickable post time)
     // ============================================================================
     function formatNumber(num) {
         if (!num && num !== 0) return '0';
@@ -645,11 +680,24 @@ var ForumPostsModule = (function(Utils, EventBus) {
         var editHtml = data.editInfo ? '<div class="post-edit-info"><small>' + Utils.escapeHtml(data.editInfo) + '</small></div>' : '';
         var signatureHtml = data.signatureHtml ? '<div class="post-signature">' + data.signatureHtml + '</div>' : '';
         var ipHtml = data.ipAddress ? '<div class="post-ip">IP: ' + data.ipAddress + '</div>' : '';
+
+        // Build post time with optional link (if postPermalink exists)
+        var postTimeHtml = '<div class="post-time">';
+        if (data.postPermalink) {
+            postTimeHtml += '<a href="' + Utils.escapeHtml(data.postPermalink) + '" class="post-time-link" rel="nofollow">';
+        }
+        postTimeHtml += '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
+                        Utils.escapeHtml(data.relativeTime) + '</time>';
+        if (data.postPermalink) {
+            postTimeHtml += '</a>';
+        }
+        postTimeHtml += '</div>';
+
         return '<article class="post-card" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
                 '<div class="post-meta">' +
                     '<div class="post-number"><i class="fa-regular fa-hashtag" aria-hidden="true"></i> ' + data.postNumber + '</div>' +
-                    '<div class="post-time"><time datetime="' + new Date().toISOString() + '">' + data.timeAgo + '</time></div>' +
+                    postTimeHtml +
                 '</div>' +
                 '<div class="post-actions">' +
                     '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>' +
@@ -684,7 +732,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // REFRESH FUNCTIONS (original, unchanged)
+    // REFRESH FUNCTIONS (unchanged)
     // ============================================================================
     function refreshLikeDisplay(postId) {
         var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + postId);
@@ -731,7 +779,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // EVENT HANDLERS (original, unchanged)
+    // EVENT HANDLERS (unchanged)
     // ============================================================================
     function handleAvatarClick(pid) {
         var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
@@ -935,6 +983,21 @@ var ForumPostsModule = (function(Utils, EventBus) {
             var reactionData = getReactionData($post);
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
+
+            // ---- NEW: Extract timestamp and permalink ----
+            var whenSpan = $post.querySelector('.when');
+            var postPermalink = null;
+            var postDate = null;
+            if (whenSpan) {
+                var anchor = whenSpan.closest('a');
+                if (anchor && anchor.getAttribute('href')) {
+                    postPermalink = anchor.getAttribute('href');
+                }
+                var title = whenSpan.getAttribute('title');
+                postDate = parseDateFromTitle(title);
+            }
+            var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
+
             postsData.push({
                 postId: postId,
                 mid: mid,
@@ -955,7 +1018,10 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 reactionCount: reactionData.reactionCount,
                 reactions: reactionData.reactions,
                 ipAddress: getMaskedIp($post),
-                timeAgo: getTimeAgo($post)
+                // New fields:
+                relativeTime: relativeTime,
+                postDate: postDate,
+                postPermalink: postPermalink
             });
             convertedPostIds.add(postId);
         }
@@ -979,11 +1045,11 @@ var ForumPostsModule = (function(Utils, EventBus) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps)');
     }
 
     // ============================================================================
-    // INITIALIZE (fixed – added missing reaction observer registrations)
+    // INITIALIZE (unchanged)
     // ============================================================================
     function initialize() {
         if (isInitialized) { console.log('[PostsModule] Already initialized'); return; }
@@ -1002,7 +1068,6 @@ var ForumPostsModule = (function(Utils, EventBus) {
                     convertAllPosts();
                 }
             });
-            // This registration is crucial for displaying reactions
             globalThis.forumObserver.register({
                 id: 'posts-module-reactions',
                 selector: '.st-emoji-container',
@@ -1019,7 +1084,6 @@ var ForumPostsModule = (function(Utils, EventBus) {
                     }
                 }
             });
-            // Also refresh when reaction images load
             globalThis.forumObserver.register({
                 id: 'posts-module-reaction-images',
                 selector: '.st-emoji-preview img',

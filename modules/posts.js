@@ -1,7 +1,7 @@
 // modules/posts.js
 // Forum Modernizer - Posts Module (API-enhanced, all original functionality preserved)
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
-// ADDED: Relative timestamps + clickable post time (triggers original .when anchor)
+// ADDED: Relative timestamps + clickable post time (links to original post)
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -354,6 +354,8 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
     function getPostNumber($post, index) { return index + 1; }
 
+    // getTimeAgo REMOVED – replaced by parseDateFromTitle + getRelativeTimeString
+
     // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)
     // ============================================================================
@@ -630,7 +632,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // GENERATE MODERN CARD (clickable div for post time)
+    // GENERATE MODERN CARD (updated: relative time + clickable post time)
     // ============================================================================
     function formatNumber(num) {
         if (!num && num !== 0) return '0';
@@ -679,12 +681,17 @@ var ForumPostsModule = (function(Utils, EventBus) {
         var signatureHtml = data.signatureHtml ? '<div class="post-signature">' + data.signatureHtml + '</div>' : '';
         var ipHtml = data.ipAddress ? '<div class="post-ip">IP: ' + data.ipAddress + '</div>' : '';
 
-        // Build post time as a clickable div (no <a>)
-        var postTimeHtml = '<div class="post-time clickable-post-time" data-post-id="' + data.postId + '">' +
-            '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
-                Utils.escapeHtml(data.relativeTime) +
-            '</time>' +
-        '</div>';
+        // Build post time with optional link (if postPermalink exists)
+        var postTimeHtml = '<div class="post-time">';
+        if (data.postPermalink) {
+            postTimeHtml += '<a href="' + Utils.escapeHtml(data.postPermalink) + '" class="post-time-link" rel="nofollow">';
+        }
+        postTimeHtml += '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
+                        Utils.escapeHtml(data.relativeTime) + '</time>';
+        if (data.postPermalink) {
+            postTimeHtml += '</a>';
+        }
+        postTimeHtml += '</div>';
 
         return '<article class="post-card" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
@@ -772,7 +779,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // EVENT HANDLERS (original + new click handler for post time)
+    // EVENT HANDLERS (unchanged)
     // ============================================================================
     function handleAvatarClick(pid) {
         var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
@@ -896,20 +903,6 @@ var ForumPostsModule = (function(Utils, EventBus) {
         createCustomReactionPopup(buttonElement, pid);
     }
 
-    // NEW: Click handler for the post time div – it triggers the original .when anchor
-    function handlePostTimeClick(pid) {
-        var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
-        if (!originalPost) return;
-        var whenAnchor = originalPost.querySelector('a .when, .when');
-        // The .when is inside an <a>; we want that <a>
-        var anchor = whenAnchor ? whenAnchor.closest('a') : originalPost.querySelector('a .when')?.closest('a');
-        if (!anchor) anchor = originalPost.querySelector('a[href*="#entry' + pid + '"]');
-        if (anchor) {
-            // Simulate a click on the original anchor
-            anchor.click();
-        }
-    }
-
     function attachEventHandlers() {
         document.addEventListener('click', function(e) {
             var avatarDiv = e.target.closest('.avatar-modern');
@@ -959,15 +952,6 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 if (pid) handleReact(pid, btn);
             }
         });
-        // NEW: Click handler for the clickable post time div
-        document.addEventListener('click', function(e) {
-            var postTimeDiv = e.target.closest('.clickable-post-time');
-            if (postTimeDiv) {
-                e.preventDefault();
-                var pid = postTimeDiv.getAttribute('data-post-id');
-                if (pid) handlePostTimeClick(pid);
-            }
-        });
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && activePopup) { activePopup.remove(); activePopup = null; }
         });
@@ -1000,10 +984,15 @@ var ForumPostsModule = (function(Utils, EventBus) {
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
 
-            // Extract timestamp and relative time (but permalink is not stored – we'll find anchor on click)
+            // ---- NEW: Extract timestamp and permalink ----
             var whenSpan = $post.querySelector('.when');
+            var postPermalink = null;
             var postDate = null;
             if (whenSpan) {
+                var anchor = whenSpan.closest('a');
+                if (anchor && anchor.getAttribute('href')) {
+                    postPermalink = anchor.getAttribute('href');
+                }
                 var title = whenSpan.getAttribute('title');
                 postDate = parseDateFromTitle(title);
             }
@@ -1029,8 +1018,10 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 reactionCount: reactionData.reactionCount,
                 reactions: reactionData.reactions,
                 ipAddress: getMaskedIp($post),
+                // New fields:
                 relativeTime: relativeTime,
-                postDate: postDate
+                postDate: postDate,
+                postPermalink: postPermalink
             });
             convertedPostIds.add(postId);
         }
@@ -1054,7 +1045,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + clickable post time)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps)');
     }
 
     // ============================================================================

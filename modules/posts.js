@@ -305,106 +305,20 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
     function getPostNumber($post, index) { return index + 1; }
 
-// ========== ENHANCED DATE PARSING (handles US/EU/ISO/month names, trailing colons) ==========
-function parsePostDate(whenTitle, whenText) {
-    // Remove trailing colon and seconds (e.g. "10:13 PM:40" -> "10:13 PM")
-    var cleanTitle = whenTitle.replace(/([AP]M):\d+$/, '$1');
-    
-    var hasAmPm = /AM|PM/i.test(cleanTitle);
-    var usesDot = /\./.test(cleanTitle) && !/\//.test(cleanTitle);
-    var usesHyphen = /-/.test(cleanTitle) && !/\//.test(cleanTitle);
-    
-    // ISO format (yyyy-mm-dd HH:MM:SS)
-    var isoMatch = cleanTitle.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if (isoMatch) {
-        return new Date(
-            parseInt(isoMatch[1]), parseInt(isoMatch[2])-1, parseInt(isoMatch[3]),
-            parseInt(isoMatch[4]), parseInt(isoMatch[5]), parseInt(isoMatch[6]||0)
-        );
-    }
-    
-    // Month names (unambiguous)
-    var monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-    for (var i=0; i<monthNames.length; i++) {
-        if (cleanTitle.toLowerCase().includes(monthNames[i])) {
-            var d = new Date(cleanTitle);
-            if (!isNaN(d.getTime())) return d;
-            break;
-        }
-    }
-    
-    // EU format (day/month/year) – when no AM/PM or dot/hyphen separators
-    if (!hasAmPm || usesDot || usesHyphen) {
-        var euMatch = cleanTitle.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:AM|PM)?/i);
-        if (euMatch) {
-            var day = parseInt(euMatch[1],10), month = parseInt(euMatch[2],10)-1, year = parseInt(euMatch[3],10);
-            var hour = parseInt(euMatch[4],10), minute = parseInt(euMatch[5],10), second = parseInt(euMatch[6]||0,10);
-            var ampm = cleanTitle.match(/(AM|PM)/i);
-            if (ampm) {
-                if (ampm[1].toUpperCase() === 'PM' && hour !== 12) hour += 12;
-                if (ampm[1].toUpperCase() === 'AM' && hour === 12) hour = 0;
-            }
-            return new Date(year, month, day, hour, minute, second);
-        }
-    }
-    
-    // US format (month/day/year) – when AM/PM present
-    if (hasAmPm) {
-        var usMatch = cleanTitle.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)/i);
-        if (usMatch) {
-            var month = parseInt(usMatch[1],10)-1, day = parseInt(usMatch[2],10), year = parseInt(usMatch[3],10);
-            var hour = parseInt(usMatch[4],10), minute = parseInt(usMatch[5],10), second = parseInt(usMatch[6]||0,10);
-            var ampmFlag = usMatch[7].toUpperCase();
-            if (ampmFlag === 'PM' && hour !== 12) hour += 12;
-            if (ampmFlag === 'AM' && hour === 12) hour = 0;
-            return new Date(year, month, day, hour, minute, second);
-        }
-    }
-    
-    var fallback = new Date(cleanTitle);
-    if (!isNaN(fallback.getTime())) return fallback;
-    
-    console.warn('[PostsModule] Unable to parse date:', whenTitle);
-    return null;
-}
-
-// ========== REPLACE getTimeAgo with this version ==========
-function getTimeAgo($post) {
-    var whenSpan = $post.querySelector('.when');
-    if (!whenSpan) return 'Recently';
-    var whenTitle = whenSpan.getAttribute('title');
-    if (!whenTitle) return 'Recently';
-    var whenText = whenSpan.textContent || '';
-    var postDate = parsePostDate(whenTitle, whenText);
-    if (!postDate || isNaN(postDate.getTime())) return 'Recently';
-    
-    var now = new Date();
-    var diffSeconds = (postDate - now) / 1000; // negative = past
-    var absSeconds = Math.abs(diffSeconds);
-    
-    // Prefer months for differences up to 18 months (≈ 1.5 years)
-    try {
-        var rtf = new Intl.RelativeTimeFormat(navigator.language || 'en-US', { numeric: 'auto' });
-        if (absSeconds < 60) return rtf.format(Math.floor(diffSeconds), 'second');
-        if (absSeconds < 3600) return rtf.format(Math.floor(diffSeconds / 60), 'minute');
-        if (absSeconds < 86400) return rtf.format(Math.floor(diffSeconds / 3600), 'hour');
-        if (absSeconds < 2592000) return rtf.format(Math.floor(diffSeconds / 86400), 'day');
-        if (absSeconds < 47304000) return rtf.format(Math.floor(diffSeconds / 2592000), 'month'); // 18 months in seconds
-        return rtf.format(Math.floor(diffSeconds / 31536000), 'year');
-    } catch(e) {
-        // Fallback for older browsers
+    function getTimeAgo($post) {
+        var whenSpan = $post.querySelector('.when');
+        if (!whenSpan) return 'Recently';
+        var whenTitle = whenSpan.getAttribute('title');
+        if (!whenTitle) return 'Recently';
+        var postDate = new Date(whenTitle);
+        var now = new Date();
         var diffDays = Math.floor((now - postDate) / 86400000);
-        if (diffDays >= 365) return Math.floor(diffDays / 365) + ' year' + (Math.floor(diffDays/365)>1?'s':'') + ' ago';
-        if (diffDays >= 30) return Math.floor(diffDays / 30) + ' month' + (Math.floor(diffDays/30)>1?'s':'') + ' ago';
-        if (diffDays >= 1) return diffDays + ' day' + (diffDays>1?'s':'') + ' ago';
+        if (diffDays >= 1) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
         var diffHours = Math.floor((now - postDate) / 3600000);
-        if (diffHours >= 1) return diffHours + ' hour' + (diffHours>1?'s':'') + ' ago';
-        var diffMins = Math.floor((now - postDate) / 60000);
-        if (diffMins >= 1) return diffMins + ' minute' + (diffMins>1?'s':'') + ' ago';
+        if (diffHours >= 1) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
         return 'Just now';
     }
-}
-    
+
     // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)
     // ============================================================================

@@ -305,19 +305,124 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
     function getPostNumber($post, index) { return index + 1; }
 
-    function getTimeAgo($post) {
-        var whenSpan = $post.querySelector('.when');
-        if (!whenSpan) return 'Recently';
-        var whenTitle = whenSpan.getAttribute('title');
-        if (!whenTitle) return 'Recently';
-        var postDate = new Date(whenTitle);
-        var now = new Date();
+// Add this helper function before getTimeAgo (around line 200-250)
+function parsePostDate(whenTitle, whenText) {
+    // Try to detect format based on presence of AM/PM or separator type
+    var hasAmPm = /AM|PM/i.test(whenTitle) || /AM|PM/i.test(whenText);
+    var usesDot = /\./.test(whenTitle) && !/\//.test(whenTitle);
+    var usesHyphen = /-/.test(whenTitle) && !/\//.test(whenTitle);
+    
+    // Try ISO format first (year-month-day)
+    var isoMatch = whenTitle.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (isoMatch) {
+        return new Date(
+            parseInt(isoMatch[1]),                    // year
+            parseInt(isoMatch[2]) - 1,                // month
+            parseInt(isoMatch[3]),                    // day
+            parseInt(isoMatch[4]),                    // hour
+            parseInt(isoMatch[5]),                    // minute
+            parseInt(isoMatch[6] || 0)                // second
+        );
+    }
+    
+    // Try month name formats (unambiguous)
+    var monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    var lowerTitle = whenTitle.toLowerCase();
+    for (var i = 0; i < monthNames.length; i++) {
+        if (lowerTitle.includes(monthNames[i])) {
+            var parsed = new Date(whenTitle);
+            if (!isNaN(parsed.getTime())) return parsed;
+            break;
+        }
+    }
+    
+    // Try EU format (day/month/year) - when no AM/PM, or dot/hyphen separators
+    if (!hasAmPm || usesDot || usesHyphen) {
+        var euMatch = whenTitle.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:AM|PM)?/i);
+        if (euMatch) {
+            var day = parseInt(euMatch[1], 10);
+            var month = parseInt(euMatch[2], 10) - 1;
+            var year = parseInt(euMatch[3], 10);
+            var hour = parseInt(euMatch[4], 10);
+            var minute = parseInt(euMatch[5], 10);
+            var second = parseInt(euMatch[6] || 0, 10);
+            
+            // Handle AM/PM if present in EU format (unlikely but possible)
+            var ampm = whenTitle.match(/(AM|PM)/i);
+            if (ampm) {
+                if (ampm[1].toUpperCase() === 'PM' && hour !== 12) hour += 12;
+                if (ampm[1].toUpperCase() === 'AM' && hour === 12) hour = 0;
+            }
+            return new Date(year, month, day, hour, minute, second);
+        }
+    }
+    
+    // Try US format (month/day/year) - when AM/PM present
+    if (hasAmPm) {
+        var usMatch = whenTitle.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)/i);
+        if (usMatch) {
+            var month = parseInt(usMatch[1], 10) - 1;
+            var day = parseInt(usMatch[2], 10);
+            var year = parseInt(usMatch[3], 10);
+            var hour = parseInt(usMatch[4], 10);
+            var minute = parseInt(usMatch[5], 10);
+            var second = parseInt(usMatch[6] || 0, 10);
+            var ampmFlag = usMatch[7].toUpperCase();
+            if (ampmFlag === 'PM' && hour !== 12) hour += 12;
+            if (ampmFlag === 'AM' && hour === 12) hour = 0;
+            return new Date(year, month, day, hour, minute, second);
+        }
+    }
+    
+    // Fallback: try generic Date parsing
+    var fallbackDate = new Date(whenTitle);
+    if (!isNaN(fallbackDate.getTime())) return fallbackDate;
+    
+    console.warn('[PostsModule] Unable to parse date:', whenTitle);
+    return null;
+}
+
+// Replace the existing getTimeAgo function with this enhanced version
+function getTimeAgo($post) {
+    var whenSpan = $post.querySelector('.when');
+    if (!whenSpan) return 'Recently';
+    
+    var whenTitle = whenSpan.getAttribute('title');
+    if (!whenTitle) return 'Recently';
+    
+    // Also get the display text for format detection
+    var whenText = whenSpan.textContent || '';
+    var postDate = parsePostDate(whenTitle, whenText);
+    
+    if (!postDate || isNaN(postDate.getTime())) return 'Recently';
+    
+    var now = new Date();
+    var diff = (postDate - now) / 1000; // difference in seconds (negative = past)
+    var absDiff = Math.abs(diff);
+    
+    // Use Intl.RelativeTimeFormat for localized relative strings
+    try {
+        var rtf = new Intl.RelativeTimeFormat(navigator.language || 'en-US', { numeric: 'auto' });
+        
+        if (absDiff < 60) return rtf.format(Math.floor(diff), 'second');
+        if (absDiff < 3600) return rtf.format(Math.floor(diff / 60), 'minute');
+        if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600), 'hour');
+        if (absDiff < 2592000) return rtf.format(Math.floor(diff / 86400), 'day');
+        if (absDiff < 31536000) return rtf.format(Math.floor(diff / 2592000), 'month');
+        return rtf.format(Math.floor(diff / 31536000), 'year');
+    } catch(e) {
+        // Fallback to simple text if Intl.RelativeTimeFormat is not supported
         var diffDays = Math.floor((now - postDate) / 86400000);
+        if (diffDays >= 365) return Math.floor(diffDays / 365) + ' year' + (Math.floor(diffDays / 365) > 1 ? 's' : '') + ' ago';
+        if (diffDays >= 30) return Math.floor(diffDays / 30) + ' month' + (Math.floor(diffDays / 30) > 1 ? 's' : '') + ' ago';
         if (diffDays >= 1) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
         var diffHours = Math.floor((now - postDate) / 3600000);
         if (diffHours >= 1) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
+        var diffMinutes = Math.floor((now - postDate) / 60000);
+        if (diffMinutes >= 1) return diffMinutes + ' minute' + (diffMinutes > 1 ? 's' : '') + ' ago';
         return 'Just now';
     }
+}
 
     // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)

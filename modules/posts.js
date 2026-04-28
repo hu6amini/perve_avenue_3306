@@ -307,73 +307,62 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
 // ========== ENHANCED DATE PARSING (handles US/EU/ISO/month names, trailing colons) ==========
 function parsePostDate(whenTitle, whenText) {
-    // Clean up: remove extra trailing colon and digits (e.g. "10:13 PM:40" -> "10:13 PM")
+    // Remove trailing colon and seconds (e.g. "10:13 PM:40" -> "10:13 PM")
     var cleanTitle = whenTitle.replace(/([AP]M):\d+$/, '$1');
     
-    // Detect format indicators
     var hasAmPm = /AM|PM/i.test(cleanTitle);
     var usesDot = /\./.test(cleanTitle) && !/\//.test(cleanTitle);
     var usesHyphen = /-/.test(cleanTitle) && !/\//.test(cleanTitle);
     
-    // 1. ISO format (yyyy-mm-dd HH:MM:SS)
+    // ISO format (yyyy-mm-dd HH:MM:SS)
     var isoMatch = cleanTitle.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if (isoMatch) {
         return new Date(
-            parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]),
-            parseInt(isoMatch[4]), parseInt(isoMatch[5]), parseInt(isoMatch[6] || 0)
+            parseInt(isoMatch[1]), parseInt(isoMatch[2])-1, parseInt(isoMatch[3]),
+            parseInt(isoMatch[4]), parseInt(isoMatch[5]), parseInt(isoMatch[6]||0)
         );
     }
     
-    // 2. Month name formats (unambiguous)
-    var monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    var lowerTitle = cleanTitle.toLowerCase();
-    for (var i = 0; i < monthNames.length; i++) {
-        if (lowerTitle.includes(monthNames[i])) {
-            var parsed = new Date(cleanTitle);
-            if (!isNaN(parsed.getTime())) return parsed;
+    // Month names (unambiguous)
+    var monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    for (var i=0; i<monthNames.length; i++) {
+        if (cleanTitle.toLowerCase().includes(monthNames[i])) {
+            var d = new Date(cleanTitle);
+            if (!isNaN(d.getTime())) return d;
             break;
         }
     }
     
-    // 3. EU format (day/month/year) – when no AM/PM, or dot/hyphen separators
+    // EU format (day/month/year) – when no AM/PM or dot/hyphen separators
     if (!hasAmPm || usesDot || usesHyphen) {
         var euMatch = cleanTitle.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(?:AM|PM)?/i);
         if (euMatch) {
-            var day = parseInt(euMatch[1], 10);
-            var month = parseInt(euMatch[2], 10) - 1;
-            var year = parseInt(euMatch[3], 10);
-            var hour = parseInt(euMatch[4], 10);
-            var minute = parseInt(euMatch[5], 10);
-            var second = parseInt(euMatch[6] || 0, 10);
-            var ampmFlag = cleanTitle.match(/(AM|PM)/i);
-            if (ampmFlag) {
-                if (ampmFlag[1].toUpperCase() === 'PM' && hour !== 12) hour += 12;
-                if (ampmFlag[1].toUpperCase() === 'AM' && hour === 12) hour = 0;
+            var day = parseInt(euMatch[1],10), month = parseInt(euMatch[2],10)-1, year = parseInt(euMatch[3],10);
+            var hour = parseInt(euMatch[4],10), minute = parseInt(euMatch[5],10), second = parseInt(euMatch[6]||0,10);
+            var ampm = cleanTitle.match(/(AM|PM)/i);
+            if (ampm) {
+                if (ampm[1].toUpperCase() === 'PM' && hour !== 12) hour += 12;
+                if (ampm[1].toUpperCase() === 'AM' && hour === 12) hour = 0;
             }
             return new Date(year, month, day, hour, minute, second);
         }
     }
     
-    // 4. US format (month/day/year) – when AM/PM present
+    // US format (month/day/year) – when AM/PM present
     if (hasAmPm) {
         var usMatch = cleanTitle.match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)/i);
         if (usMatch) {
-            var month = parseInt(usMatch[1], 10) - 1;
-            var day = parseInt(usMatch[2], 10);
-            var year = parseInt(usMatch[3], 10);
-            var hour = parseInt(usMatch[4], 10);
-            var minute = parseInt(usMatch[5], 10);
-            var second = parseInt(usMatch[6] || 0, 10);
-            var ampm = usMatch[7].toUpperCase();
-            if (ampm === 'PM' && hour !== 12) hour += 12;
-            if (ampm === 'AM' && hour === 12) hour = 0;
+            var month = parseInt(usMatch[1],10)-1, day = parseInt(usMatch[2],10), year = parseInt(usMatch[3],10);
+            var hour = parseInt(usMatch[4],10), minute = parseInt(usMatch[5],10), second = parseInt(usMatch[6]||0,10);
+            var ampmFlag = usMatch[7].toUpperCase();
+            if (ampmFlag === 'PM' && hour !== 12) hour += 12;
+            if (ampmFlag === 'AM' && hour === 12) hour = 0;
             return new Date(year, month, day, hour, minute, second);
         }
     }
     
-    // 5. Fallback
-    var fallbackDate = new Date(cleanTitle);
-    if (!isNaN(fallbackDate.getTime())) return fallbackDate;
+    var fallback = new Date(cleanTitle);
+    if (!isNaN(fallback.getTime())) return fallback;
     
     console.warn('[PostsModule] Unable to parse date:', whenTitle);
     return null;
@@ -383,38 +372,35 @@ function parsePostDate(whenTitle, whenText) {
 function getTimeAgo($post) {
     var whenSpan = $post.querySelector('.when');
     if (!whenSpan) return 'Recently';
-    
     var whenTitle = whenSpan.getAttribute('title');
     if (!whenTitle) return 'Recently';
-    
     var whenText = whenSpan.textContent || '';
     var postDate = parsePostDate(whenTitle, whenText);
-    
     if (!postDate || isNaN(postDate.getTime())) return 'Recently';
     
     var now = new Date();
-    var diff = (postDate - now) / 1000; // negative = past
-    var absDiff = Math.abs(diff);
+    var diffSeconds = (postDate - now) / 1000; // negative = past
+    var absSeconds = Math.abs(diffSeconds);
     
-    // Use Intl.RelativeTimeFormat for localized, human-friendly strings
+    // Prefer months for differences up to 18 months (≈ 1.5 years)
     try {
         var rtf = new Intl.RelativeTimeFormat(navigator.language || 'en-US', { numeric: 'auto' });
-        if (absDiff < 60) return rtf.format(Math.floor(diff), 'second');
-        if (absDiff < 3600) return rtf.format(Math.floor(diff / 60), 'minute');
-        if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600), 'hour');
-        if (absDiff < 2592000) return rtf.format(Math.floor(diff / 86400), 'day');
-        if (absDiff < 31536000) return rtf.format(Math.floor(diff / 2592000), 'month');
-        return rtf.format(Math.floor(diff / 31536000), 'year');
+        if (absSeconds < 60) return rtf.format(Math.floor(diffSeconds), 'second');
+        if (absSeconds < 3600) return rtf.format(Math.floor(diffSeconds / 60), 'minute');
+        if (absSeconds < 86400) return rtf.format(Math.floor(diffSeconds / 3600), 'hour');
+        if (absSeconds < 2592000) return rtf.format(Math.floor(diffSeconds / 86400), 'day');
+        if (absSeconds < 47304000) return rtf.format(Math.floor(diffSeconds / 2592000), 'month'); // 18 months in seconds
+        return rtf.format(Math.floor(diffSeconds / 31536000), 'year');
     } catch(e) {
         // Fallback for older browsers
         var diffDays = Math.floor((now - postDate) / 86400000);
-        if (diffDays >= 365) return Math.floor(diffDays / 365) + ' year' + (Math.floor(diffDays / 365) > 1 ? 's' : '') + ' ago';
-        if (diffDays >= 30) return Math.floor(diffDays / 30) + ' month' + (Math.floor(diffDays / 30) > 1 ? 's' : '') + ' ago';
-        if (diffDays >= 1) return diffDays + ' day' + (diffDays > 1 ? 's' : '') + ' ago';
+        if (diffDays >= 365) return Math.floor(diffDays / 365) + ' year' + (Math.floor(diffDays/365)>1?'s':'') + ' ago';
+        if (diffDays >= 30) return Math.floor(diffDays / 30) + ' month' + (Math.floor(diffDays/30)>1?'s':'') + ' ago';
+        if (diffDays >= 1) return diffDays + ' day' + (diffDays>1?'s':'') + ' ago';
         var diffHours = Math.floor((now - postDate) / 3600000);
-        if (diffHours >= 1) return diffHours + ' hour' + (diffHours > 1 ? 's' : '') + ' ago';
-        var diffMinutes = Math.floor((now - postDate) / 60000);
-        if (diffMinutes >= 1) return diffMinutes + ' minute' + (diffMinutes > 1 ? 's' : '') + ' ago';
+        if (diffHours >= 1) return diffHours + ' hour' + (diffHours>1?'s':'') + ' ago';
+        var diffMins = Math.floor((now - postDate) / 60000);
+        if (diffMins >= 1) return diffMins + ' minute' + (diffMins>1?'s':'') + ' ago';
         return 'Just now';
     }
 }

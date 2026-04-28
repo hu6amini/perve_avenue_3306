@@ -681,17 +681,12 @@ var ForumPostsModule = (function(Utils, EventBus) {
         var signatureHtml = data.signatureHtml ? '<div class="post-signature">' + data.signatureHtml + '</div>' : '';
         var ipHtml = data.ipAddress ? '<div class="post-ip">IP: ' + data.ipAddress + '</div>' : '';
 
-        // Build post time with optional link (if postPermalink exists)
-        var postTimeHtml = '<div class="post-time">';
-        if (data.postPermalink) {
-            postTimeHtml += '<a href="' + Utils.escapeHtml(data.postPermalink) + '" class="post-time-link" rel="nofollow">';
-        }
-        postTimeHtml += '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
-                        Utils.escapeHtml(data.relativeTime) + '</time>';
-        if (data.postPermalink) {
-            postTimeHtml += '</a>';
-        }
-        postTimeHtml += '</div>';
+        // Build post time – no link, just relative time
+var postTimeHtml = '<div class="post-time">' +
+    '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
+    Utils.escapeHtml(data.relativeTime) +
+    '</time>' +
+    '</div>';
 
         return '<article class="post-card" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +

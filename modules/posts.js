@@ -73,19 +73,28 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return new Date(year, month, day, hour, minute, second);
     }
 
-    function getRelativeTimeString(date) {
-        if (!date || isNaN(date.getTime())) return 'Unknown';
-        var now = new Date();
-        var diff = (date - now) / 1000; // negative = past
-        var rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'en', { numeric: 'auto' });
-        var absDiff = Math.abs(diff);
-        if (absDiff < 60) return rtf.format(Math.floor(diff), 'second');
-        if (absDiff < 3600) return rtf.format(Math.floor(diff / 60), 'minute');
-        if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600), 'hour');
-        if (absDiff < 2592000) return rtf.format(Math.floor(diff / 86400), 'day');
-        if (absDiff < 31536000) return rtf.format(Math.floor(diff / 2592000), 'month');
-        return rtf.format(Math.floor(diff / 31536000), 'year');
+function getRelativeTimeString(date) {
+    if (!date || isNaN(date.getTime())) return 'Unknown';
+    var now = new Date();
+    var diff = (date - now); // difference in milliseconds (negative = past)
+    var absDiff = Math.abs(diff) / 1000; // absolute difference in seconds
+    var rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'en', { numeric: 'auto' });
+    
+    // Use absolute difference to choose the unit
+    if (absDiff < 60) return rtf.format(Math.floor(diff / 1000), 'second');
+    if (absDiff < 3600) return rtf.format(Math.floor(diff / 60000), 'minute');
+    if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600000), 'hour');
+    if (absDiff < 2592000) {
+        var days = Math.floor(absDiff / 86400);
+        return rtf.format(-days, 'day');
     }
+    if (absDiff < 31536000) {
+        var months = Math.floor(absDiff / 2592000);
+        return rtf.format(-months, 'month');
+    }
+    var years = Math.floor(absDiff / 31536000);
+    return rtf.format(-years, 'year');
+}
 
     // ============================================================================
     // API USER DATA FETCHING

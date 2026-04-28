@@ -1247,4 +1247,5 @@ img, .avatar-circle {
     }
 }
 
+.ve-content.color img:not(img[alt="fav"],img[src^="https://img.forumfree.net/html/emoticons/new/"],[class*=e1a-],img[alt$=":"],.res_tmb img,.emojione){max-width:calc(100% - (2* 5px))!important}
 .popup.pop_points, .forumfree-modal.\.report-modal-notify.Blocker.current, .ff-modal.modal.report-modal {visibility:hidden!important}

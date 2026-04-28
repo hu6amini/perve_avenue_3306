@@ -476,6 +476,11 @@ img {
     text-align: left;
 }
 
+.user-name:hover {
+    color: var(--primary-light, #10B981);
+    text-decoration: underline;
+}
+
 /* Badge container */
 .user-group {
     display: flex;

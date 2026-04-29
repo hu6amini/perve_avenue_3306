@@ -553,12 +553,14 @@ img {
 
 /* Edit indicator */
 .post-edit-info {
-    font-size: 0.7rem;
-    color: var(--text-tertiary);
-    margin-top: 0.5rem;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    font-style: italic;
+    justify-content: flex-end;
+    width: 100%;
 }
 
 .post-edit-info i {

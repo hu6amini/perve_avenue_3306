@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      6.5
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style (CSS must be provided by theme)
+// @version      6.6
+// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style (CSS must be provided by theme). Added relative timestamps for report times.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -65,6 +65,58 @@
     ];
 
     var userProfileLinks = new Map();
+
+    // ========== RELATIVE TIME HELPERS (copied from posts module) ==========
+    function parseDateFromTitle(title) {
+        if (!title) return null;
+        // Normalise title: remove extra colon+seconds (e.g., "10:13 PM:40" → "10:13 PM")
+        title = title.replace(/(\d{1,2}):(\d{2})\s*(AM|PM)?:(\d+)/i, '$1:$2 $3');
+        var hasMeridiem = /[ap]m/i.test(title);
+        var nums = title.match(/\d+/g);
+        if (!nums || nums.length < 3) return null;
+        var year, month, day, hour, minute;
+        if (hasMeridiem) {
+            // US: month/day/year, hour:minute AM/PM
+            month = parseInt(nums[0], 10) - 1;
+            day   = parseInt(nums[1], 10);
+            year  = parseInt(nums[2], 10);
+            hour  = parseInt(nums[3] || 0, 10);
+            minute = parseInt(nums[4] || 0, 10);
+            var isPM = /pm/i.test(title);
+            if (isPM && hour < 12) hour += 12;
+            if (!isPM && hour === 12) hour = 0;
+        } else {
+            // EU: day/month/year, 24h
+            day   = parseInt(nums[0], 10);
+            month = parseInt(nums[1], 10) - 1;
+            year  = parseInt(nums[2], 10);
+            hour  = parseInt(nums[3] || 0, 10);
+            minute = parseInt(nums[4] || 0, 10);
+        }
+        return new Date(year, month, day, hour, minute);
+    }
+
+    function getRelativeTimeString(date) {
+        if (!date || isNaN(date.getTime())) return 'Unknown';
+        var now = new Date();
+        var diff = (date - now); // difference in milliseconds (negative = past)
+        var absDiff = Math.abs(diff) / 1000; // absolute difference in seconds
+        var rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'en', { numeric: 'auto' });
+        
+        if (absDiff < 60) return rtf.format(Math.floor(diff / 1000), 'second');
+        if (absDiff < 3600) return rtf.format(Math.floor(diff / 60000), 'minute');
+        if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600000), 'hour');
+        if (absDiff < 2592000) {
+            var days = Math.floor(absDiff / 86400);
+            return rtf.format(-days, 'day');
+        }
+        if (absDiff < 31536000) {
+            var months = Math.floor(absDiff / 2592000);
+            return rtf.format(-months, 'month');
+        }
+        var years = Math.floor(absDiff / 31536000);
+        return rtf.format(-years, 'year');
+    }
 
     // ========== HELPER FUNCTIONS ==========
     function optimizeImageUrl(url, width, height) {
@@ -863,6 +915,13 @@
             var r = reports[i];
             var optimizedAvatar = optimizeAvatarForNotify(r.avatarUrl, r.username);
             var dicebearFallback = generateDiceBearAvatar(r.username, 'notify_' + r.reportId);
+            
+            // Convert report time to relative
+            var reportDate = parseDateFromTitle(r.time);
+            var relativeTime = reportDate ? getRelativeTimeString(reportDate) : r.time;
+            var datetimeAttr = reportDate ? reportDate.toISOString() : '';
+            var titleAttr = escapeHtml(r.time);
+            
             reportsHtml += 
                 '<div class="report-item" data-report-id="' + escapeHtml(r.reportId) + '" data-post-url="' + escapeHtml(r.postUrl) + '">' +
                     '<div class="report-avatar">' +
@@ -874,7 +933,12 @@
                             '<span class="report-badge"><i class="fa-regular fa-circle-exclamation" aria-hidden="true"></i> reported a post</span>' +
                         '</div>' +
                         '<div class="report-reason">' + escapeHtml(r.reason) + '</div>' +
-                        '<div class="report-time"><i class="fa-regular fa-clock" aria-hidden="true"></i> ' + escapeHtml(r.time) + '</div>' +
+                        '<div class="report-time">' +
+                            '<i class="fa-regular fa-clock" aria-hidden="true"></i> ' +
+                            '<time datetime="' + datetimeAttr + '" title="' + titleAttr + '">' +
+                                escapeHtml(relativeTime) +
+                            '</time>' +
+                        '</div>' +
                     '</div>' +
                     '<div class="report-actions">' +
                         '<button class="delete-report" data-report-id="' + escapeHtml(r.reportId) + '"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button>' +

@@ -564,6 +564,10 @@ img {
     margin: var(--space-md) 0 0;
 }
 
+.post-edit-info time {
+    color: var(--text-secondary);
+}
+
 .post-edit-info i {
     color: var(--primary-color);
 }

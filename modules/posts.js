@@ -282,29 +282,50 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return { title: title || 'Member', iconClass: iconClass };
     }
 
-    function getCleanContent($post) {
-        var contentTable = $post.querySelector('.right.Item table.color');
-        if (!contentTable) return '';
-        var contentClone = contentTable.cloneNode(true);
-        var signatures = contentClone.querySelectorAll('.signature, .edit');
-        signatures.forEach(function(el) { if (el && el.remove) el.remove(); });
-        var borders = contentClone.querySelectorAll('.bottomborder');
-        borders.forEach(function(el) { if (el && el.remove) el.remove(); });
-        var breaks = contentClone.querySelectorAll('br');
-        breaks.forEach(function(br) {
-            var prev = br.previousElementSibling;
-            var next = br.nextElementSibling;
-            if ((next && next.classList && next.classList.contains('bottomborder')) ||
-                (prev && prev.classList && prev.classList.contains('bottomborder'))) {
-                if (br.remove) br.remove();
-            }
-        });
-        var html = contentClone.innerHTML || '';
-        html = html.replace(/<p>\s*<\/p>/g, '');
-        html = html.trim();
-        html = transformEmbeddedLinks(html);
-        return html;
+function getCleanContent($post) {
+    var contentTable = $post.querySelector('.right.Item table.color');
+    if (!contentTable) return '';
+    var contentClone = contentTable.cloneNode(true);
+    
+    // Remove <br> tags that are directly before .edit elements (to avoid extra line breaks)
+    var editSpans = contentClone.querySelectorAll('.edit');
+    for (var i = 0; i < editSpans.length; i++) {
+        var edit = editSpans[i];
+        var prev = edit.previousSibling;
+        // Walk backwards and remove any element nodes that are <br>
+        while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') {
+            var toRemove = prev;
+            prev = prev.previousSibling;
+            toRemove.remove();
+        }
+        // The .edit itself will be removed in the next step (signatures/edits removal)
     }
+    
+    // Remove signatures and edit infos
+    var signatures = contentClone.querySelectorAll('.signature, .edit');
+    signatures.forEach(function(el) { if (el && el.remove) el.remove(); });
+    
+    // Remove borders
+    var borders = contentClone.querySelectorAll('.bottomborder');
+    borders.forEach(function(el) { if (el && el.remove) el.remove(); });
+    
+    // Clean up <br> that are next to borders (original behaviour)
+    var breaks = contentClone.querySelectorAll('br');
+    breaks.forEach(function(br) {
+        var prev = br.previousElementSibling;
+        var next = br.nextElementSibling;
+        if ((next && next.classList && next.classList.contains('bottomborder')) ||
+            (prev && prev.classList && prev.classList.contains('bottomborder'))) {
+            if (br.remove) br.remove();
+        }
+    });
+    
+    var html = contentClone.innerHTML || '';
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    html = html.trim();
+    html = transformEmbeddedLinks(html);
+    return html;
+}
 
     function getSignatureHtml($post) {
         var signature = $post.querySelector('.signature');

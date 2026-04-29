@@ -1,7 +1,7 @@
 // modules/posts.js
 // Forum Modernizer - Posts Module (API-enhanced, all original functionality preserved)
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
-// ADDED: Relative timestamps + clickable post time (links to original post)
+// ADDED: Relative timestamps for post time and edit info
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -33,14 +33,14 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // Track converted posts
     var convertedPostIds = new Set();
     var isInitialized = false;
-    var postReactions = new Map();      // store reaction data per post
-    var activePopup = null;             // custom reaction popup reference
+    var postReactions = new Map();
+    var activePopup = null;
 
     // Cache for user API data (MID -> user object)
     var userDataCache = new Map();
 
     // ============================================================================
-    // RELATIVE TIME & DATE PARSING (replaces old getTimeAgo)
+    // RELATIVE TIME & DATE PARSING
     // ============================================================================
     function parseDateFromTitle(title) {
         if (!title) return null;
@@ -73,28 +73,27 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return new Date(year, month, day, hour, minute, second);
     }
 
-function getRelativeTimeString(date) {
-    if (!date || isNaN(date.getTime())) return 'Unknown';
-    var now = new Date();
-    var diff = (date - now); // difference in milliseconds (negative = past)
-    var absDiff = Math.abs(diff) / 1000; // absolute difference in seconds
-    var rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'en', { numeric: 'auto' });
-    
-    // Use absolute difference to choose the unit
-    if (absDiff < 60) return rtf.format(Math.floor(diff / 1000), 'second');
-    if (absDiff < 3600) return rtf.format(Math.floor(diff / 60000), 'minute');
-    if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600000), 'hour');
-    if (absDiff < 2592000) {
-        var days = Math.floor(absDiff / 86400);
-        return rtf.format(-days, 'day');
+    function getRelativeTimeString(date) {
+        if (!date || isNaN(date.getTime())) return 'Unknown';
+        var now = new Date();
+        var diff = (date - now); // difference in milliseconds (negative = past)
+        var absDiff = Math.abs(diff) / 1000; // absolute difference in seconds
+        var rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'en', { numeric: 'auto' });
+        
+        if (absDiff < 60) return rtf.format(Math.floor(diff / 1000), 'second');
+        if (absDiff < 3600) return rtf.format(Math.floor(diff / 60000), 'minute');
+        if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600000), 'hour');
+        if (absDiff < 2592000) {
+            var days = Math.floor(absDiff / 86400);
+            return rtf.format(-days, 'day');
+        }
+        if (absDiff < 31536000) {
+            var months = Math.floor(absDiff / 2592000);
+            return rtf.format(-months, 'month');
+        }
+        var years = Math.floor(absDiff / 31536000);
+        return rtf.format(-years, 'year');
     }
-    if (absDiff < 31536000) {
-        var months = Math.floor(absDiff / 2592000);
-        return rtf.format(-months, 'month');
-    }
-    var years = Math.floor(absDiff / 31536000);
-    return rtf.format(-years, 'year');
-}
 
     // ============================================================================
     // API USER DATA FETCHING
@@ -232,7 +231,7 @@ function getRelativeTimeString(date) {
     }
 
     // ============================================================================
-    // DATA EXTRACTION (original, unchanged except timestamp)
+    // DATA EXTRACTION
     // ============================================================================
     function getUsername($post) {
         var nickLink = $post.querySelector('.nick a');
@@ -314,9 +313,25 @@ function getRelativeTimeString(date) {
         return sigClone.innerHTML;
     }
 
+    // NEW: getEditInfo returns object with editor, relative time, raw date, or null
     function getEditInfo($post) {
         var editSpan = $post.querySelector('.edit');
-        return editSpan ? editSpan.textContent.trim() : '';
+        if (!editSpan) return null;
+        var fullText = editSpan.textContent.trim();
+        // Split by " - " – the last part is the date
+        var parts = fullText.split(' - ');
+        if (parts.length < 2) return null;
+        var editorPart = parts.slice(0, -1).join(' - '); // e.g., "Edited by -JuNioR-"
+        var dateStr = parts[parts.length - 1].trim();
+        // Parse the date string (same format as post `.when` title)
+        var date = parseDateFromTitle(dateStr);
+        if (!date || isNaN(date.getTime())) return null;
+        var relative = getRelativeTimeString(date);
+        return {
+            editor: editorPart,
+            relative: relative,
+            rawDate: date
+        };
     }
 
     function getLikes($post) {
@@ -362,8 +377,6 @@ function getRelativeTimeString(date) {
     }
 
     function getPostNumber($post, index) { return index + 1; }
-
-    // getTimeAgo REMOVED – replaced by parseDateFromTitle + getRelativeTimeString
 
     // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)
@@ -616,7 +629,7 @@ function getRelativeTimeString(date) {
     }
 
     // ============================================================================
-    // GENERATE REACTION BUTTONS HTML (original)
+    // REACTION BUTTONS HTML
     // ============================================================================
     function generateReactionButtons(data) {
         if (!data.hasReactions || data.reactionCount === 0) {
@@ -641,7 +654,7 @@ function getRelativeTimeString(date) {
     }
 
     // ============================================================================
-    // GENERATE MODERN CARD (updated: relative time + clickable post time)
+    // GENERATE MODERN CARD (updated: relative time + relative edit time)
     // ============================================================================
     function formatNumber(num) {
         if (!num && num !== 0) return '0';
@@ -686,16 +699,33 @@ function getRelativeTimeString(date) {
             reactionCount: data.reactionCount,
             reactions: data.reactions
         });
-        var editHtml = data.editInfo ? '<div class="post-edit-info"><small>' + Utils.escapeHtml(data.editInfo) + '</small></div>' : '';
+
+        // Edit info with relative time
+        var editHtml = '';
+        if (data.editInfo && data.editInfo.relative) {
+            var editDate = data.editInfo.rawDate;
+            var isoEdit = editDate ? editDate.toISOString() : '';
+            var titleEdit = editDate ? editDate.toLocaleString() : '';
+            editHtml = '<div class="post-edit-info">' +
+                '<small>' +
+                    '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> ' +
+                    'Edited ' +
+                    '<time datetime="' + isoEdit + '" title="' + Utils.escapeHtml(titleEdit) + '">' +
+                        Utils.escapeHtml(data.editInfo.relative) +
+                    '</time>' +
+                '</small>' +
+            '</div>';
+        }
+
         var signatureHtml = data.signatureHtml ? '<div class="post-signature">' + data.signatureHtml + '</div>' : '';
         var ipHtml = data.ipAddress ? '<div class="post-ip">IP: ' + data.ipAddress + '</div>' : '';
 
-        // Build post time – no link, just relative time
-var postTimeHtml = '<div class="post-time">' +
-    '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
-    Utils.escapeHtml(data.relativeTime) +
-    '</time>' +
-    '</div>';
+        // Post time (no link)
+        var postTimeHtml = '<div class="post-time">' +
+            '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
+            Utils.escapeHtml(data.relativeTime) +
+            '</time>' +
+            '</div>';
 
         return '<article class="post-card" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
@@ -962,7 +992,7 @@ var postTimeHtml = '<div class="post-time">' +
     }
 
     // ============================================================================
-    // MAIN CONVERSION PIPELINE (API-enhanced)
+    // MAIN CONVERSION PIPELINE
     // ============================================================================
     async function convertAllPosts() {
         var container = getPostsContainer();
@@ -988,7 +1018,7 @@ var postTimeHtml = '<div class="post-time">' +
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
 
-            // ---- NEW: Extract timestamp and permalink ----
+            // Post timestamp and permalink
             var whenSpan = $post.querySelector('.when');
             var postPermalink = null;
             var postDate = null;
@@ -1001,6 +1031,9 @@ var postTimeHtml = '<div class="post-time">' +
                 postDate = parseDateFromTitle(title);
             }
             var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
+
+            // Edit info
+            var editInfo = getEditInfo($post);
 
             postsData.push({
                 postId: postId,
@@ -1016,13 +1049,12 @@ var postTimeHtml = '<div class="post-time">' +
                 rankIconClass: userTitleData.iconClass,
                 contentHtml: getCleanContent($post),
                 signatureHtml: getSignatureHtml($post),
-                editInfo: getEditInfo($post),
+                editInfo: editInfo,
                 likes: getLikes($post),
                 hasReactions: reactionData.hasReactions,
                 reactionCount: reactionData.reactionCount,
                 reactions: reactionData.reactions,
                 ipAddress: getMaskedIp($post),
-                // New fields:
                 relativeTime: relativeTime,
                 postDate: postDate,
                 postPermalink: postPermalink
@@ -1053,7 +1085,7 @@ var postTimeHtml = '<div class="post-time">' +
     }
 
     // ============================================================================
-    // INITIALIZE (unchanged)
+    // INITIALIZE
     // ============================================================================
     function initialize() {
         if (isInitialized) { console.log('[PostsModule] Already initialized'); return; }

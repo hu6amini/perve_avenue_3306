@@ -50,8 +50,6 @@ document.head.appendChild(instantPagePreload);
     "https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.9.0/slick.min.js",
     "https://cdnjs.cloudflare.com/ajax/libs/lite-youtube-embed/0.3.3/lite-yt-embed.js",
     "https://cdn.jsdelivr.net/npm/lite-vimeo-embed@0.3.0/+esm",
-    "https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.30.1/moment.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.6.0/moment-timezone-with-data.min.js",
     
     // ============================================
     // 2. FORUM ENHANCER CORE UTILITIES

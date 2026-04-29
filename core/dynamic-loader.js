@@ -73,7 +73,7 @@ document.head.appendChild(instantPagePreload);
     // ============================================
     // 5. ENHANCEMENT MODULES
     // ============================================
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@88270a6/modules/posts.js",
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@1d762c9/modules/posts.js",
     
     // ============================================
     // 6. MAIN ENHANCER (MUST BE LAST)

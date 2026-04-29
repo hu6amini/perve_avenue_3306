@@ -707,13 +707,11 @@ var ForumPostsModule = (function(Utils, EventBus) {
             var isoEdit = editDate ? editDate.toISOString() : '';
             var titleEdit = editDate ? editDate.toLocaleString() : '';
             editHtml = '<div class="post-edit-info">' +
-                '<small>' +
-                    '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> ' +
+                '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> ' +
                     'Edited ' +
                     '<time datetime="' + isoEdit + '" title="' + Utils.escapeHtml(titleEdit) + '">' +
                         Utils.escapeHtml(data.editInfo.relative) +
                     '</time>' +
-                '</small>' +
             '</div>';
         }
 

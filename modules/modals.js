@@ -132,7 +132,7 @@
             'size=48',
             'fontSize=62',
             'fontFamily=Helvetica',
-            'fontWeight=500'
+            'fontWeight=400'
         ];
         return 'https://api.dicebear.com/7.x/initials/svg?' + params.join('&');
     }

@@ -163,7 +163,7 @@ function isValidAvatarUrl(url) {
         var bgColor = getColorFromNickname(username, userId);
         var size = CONFIG.AVATAR_SIZE;
         var radius = size / 2;
-        var fontSize = Math.floor(size * 0.62); // 62% of total size (Phi ratio)
+        var fontSize = Math.floor(size * 0.618); // 61.8% of total size (Phi ratio)
         
         var svgString = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
             '<rect width="100%" height="100%" fill="#' + bgColor + '" rx="' + radius + '" ry="' + radius + '"/>' +

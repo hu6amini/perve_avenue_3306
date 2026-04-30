@@ -131,7 +131,7 @@
             'backgroundColor=' + backgroundColor,
             'size=48',
             'fontSize=62',
-            'fontWeight=600'
+            'fontWeight=500'
         ];
         return 'https://api.dicebear.com/7.x/initials/svg?' + params.join('&');
     }

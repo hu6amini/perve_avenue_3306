@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.0
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style (CSS must be provided by theme). Uses local SVG avatars with Quicksand/Bree Serif fonts.
+// @version      7.1
+// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style. Uses local SVG avatars with Quicksand/Bree Serif fonts. Added Italian timezone conversion for relative report times.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -103,6 +103,91 @@
             '</svg>';
         
         return 'data:image/svg+xml,' + encodeURIComponent(svgString);
+    }
+
+    // ========== RELATIVE TIME HELPERS (with Italian timezone conversion) ==========
+    function parseDateFromTitle(title) {
+        if (!title) return null;
+        // Normalise title: remove extra colon+seconds (e.g., "10:13 PM:40" → "10:13 PM")
+        title = title.replace(/(\d{1,2}):(\d{2})\s*(AM|PM)?:(\d+)/i, '$1:$2 $3');
+        var hasMeridiem = /[ap]m/i.test(title);
+        var nums = title.match(/\d+/g);
+        if (!nums || nums.length < 3) return null;
+        var year, month, day, hour, minute;
+        if (hasMeridiem) {
+            month = parseInt(nums[0], 10) - 1;
+            day   = parseInt(nums[1], 10);
+            year  = parseInt(nums[2], 10);
+            hour  = parseInt(nums[3] || 0, 10);
+            minute = parseInt(nums[4] || 0, 10);
+            var isPM = /pm/i.test(title);
+            if (isPM && hour < 12) hour += 12;
+            if (!isPM && hour === 12) hour = 0;
+        } else {
+            day   = parseInt(nums[0], 10);
+            month = parseInt(nums[1], 10) - 1;
+            year  = parseInt(nums[2], 10);
+            hour  = parseInt(nums[3] || 0, 10);
+            minute = parseInt(nums[4] || 0, 10);
+        }
+        return new Date(year, month, day, hour, minute);
+    }
+
+    function getRelativeTimeString(date) {
+        if (!date || isNaN(date.getTime())) return 'Unknown';
+        var now = new Date();
+        var diff = (date - now);
+        var absDiff = Math.abs(diff) / 1000;
+        var rtf = new Intl.RelativeTimeFormat(document.documentElement.lang || 'en', { numeric: 'auto' });
+        if (absDiff < 60) return rtf.format(Math.floor(diff / 1000), 'second');
+        if (absDiff < 3600) return rtf.format(Math.floor(diff / 60000), 'minute');
+        if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600000), 'hour');
+        if (absDiff < 2592000) {
+            var days = Math.floor(absDiff / 86400);
+            return rtf.format(-days, 'day');
+        }
+        if (absDiff < 31536000) {
+            var months = Math.floor(absDiff / 2592000);
+            return rtf.format(-months, 'month');
+        }
+        var years = Math.floor(absDiff / 31536000);
+        return rtf.format(-years, 'year');
+    }
+
+    // Convert Italian local timestamp (DD/MM/YYYY HH:MM) to a Date object in the user's local time
+    function italianTimeToLocalDate(dateStr) {
+        var parts = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+        if (!parts) return null;
+        var day = parseInt(parts[1], 10);
+        var month = parseInt(parts[2], 10) - 1;
+        var year = parseInt(parts[3], 10);
+        var hour = parseInt(parts[4], 10);
+        var minute = parseInt(parts[5], 10);
+
+        function getLastSundayUtc(y, m) {
+            var lastDay = new Date(Date.UTC(y, m+1, 0)).getUTCDate();
+            for (var d = lastDay; d >= 1; d--) {
+                var test = new Date(Date.UTC(y, m, d));
+                if (test.getUTCDay() === 0) return d;
+            }
+            return 0;
+        }
+
+        function isItalianDST(y, m, d) {
+            var lastSunMar = getLastSundayUtc(y, 2);
+            var lastSunOct = getLastSundayUtc(y, 9);
+            var dateUtc = new Date(Date.UTC(y, m, d));
+            var time = dateUtc.getTime();
+            var startDST = new Date(Date.UTC(y, 2, lastSunMar, 1)).getTime();
+            var endDST   = new Date(Date.UTC(y, 9, lastSunOct, 1)).getTime();
+            return time >= startDST && time < endDST;
+        }
+
+        var isDST = isItalianDST(year, month, day);
+        var italianOffsetMinutes = isDST ? -120 : -60;
+        var pseudoUtc = Date.UTC(year, month, day, hour, minute);
+        var realUtcMs = pseudoUtc + (italianOffsetMinutes * 60 * 1000);
+        return new Date(realUtcMs);
     }
 
     // ========== HELPER FUNCTIONS ==========
@@ -874,6 +959,13 @@
             var r = reports[i];
             var localSvgFallback = generateLocalSvgAvatar(r.username, 'notify_' + r.reportId, 48);
             var optimizedAvatar = r.avatarUrl && isValidAvatar(r.avatarUrl) ? optimizeImageUrl(r.avatarUrl, 48, 48).url : localSvgFallback;
+            
+            // Convert Italian timestamp to local time, then to relative
+            var localDate = italianTimeToLocalDate(r.time);
+            var relativeTime = localDate ? getRelativeTimeString(localDate) : r.time;
+            var datetimeAttr = localDate ? localDate.toISOString() : '';
+            var titleAttr = escapeHtml(r.time);
+            
             reportsHtml += 
                 '<div class="report-item" data-report-id="' + escapeHtml(r.reportId) + '" data-post-url="' + escapeHtml(r.postUrl) + '">' +
                     '<div class="report-avatar">' +
@@ -885,7 +977,12 @@
                             '<span class="report-badge"><i class="fa-regular fa-circle-exclamation" aria-hidden="true"></i> reported a post</span>' +
                         '</div>' +
                         '<div class="report-reason">' + escapeHtml(r.reason) + '</div>' +
-                        '<div class="report-time"><i class="fa-regular fa-clock" aria-hidden="true"></i> ' + escapeHtml(r.time) + '</div>' +
+                        '<div class="report-time">' +
+                            '<i class="fa-regular fa-clock" aria-hidden="true"></i> ' +
+                            '<time datetime="' + datetimeAttr + '" title="' + titleAttr + '">' +
+                                escapeHtml(relativeTime) +
+                            '</time>' +
+                        '</div>' +
                     '</div>' +
                     '<div class="report-actions">' +
                         '<button class="delete-report" data-report-id="' + escapeHtml(r.reportId) + '"><i class="fa-regular fa-trash-can" aria-hidden="true"></i> Delete</button>' +
@@ -986,7 +1083,6 @@
         tabReports.addEventListener('click', function(e) { e.preventDefault(); setActiveTab('reports'); });
         tabGroup.addEventListener('click', function(e) { e.preventDefault(); setActiveTab('group'); });
 
-        // Make report items clickable
         var reportItems = container.querySelectorAll('.report-item');
         for (var i = 0; i < reportItems.length; i++) {
             var item = reportItems[i];

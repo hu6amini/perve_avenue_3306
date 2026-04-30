@@ -124,33 +124,15 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // ============================================================================
     // AVATAR OPTIMISATION (weserv, 60×60)
     // ============================================================================
-    function optimizeImageUrl(url, width, height) {
-        if (!url) return null;
-        var lowerUrl = url.toLowerCase();
-        if (lowerUrl.indexOf('weserv.nl') !== -1 ||
-            lowerUrl.indexOf('dicebear.com') !== -1 ||
-            lowerUrl.indexOf('api.dicebear.com') !== -1 ||
-            url.indexOf('data:') === 0) {
-            return url;
-        }
-        var targetWidth = width || CONFIG.AVATAR_SIZE;
-        var targetHeight = height || CONFIG.AVATAR_SIZE;
-        var isGif = (lowerUrl.indexOf('.gif') !== -1 || /\.gif($|\?|#)/i.test(lowerUrl));
-        var outputFormat = 'webp';
-        var quality = CONFIG.QUALITY;
-        var encodedUrl = encodeURIComponent(url);
-        var optimizedUrl = CONFIG.WESERV_CDN + '?url=' + encodedUrl +
-            '&output=' + outputFormat +
-            '&maxage=' + CONFIG.CACHE +
-            '&q=' + quality +
-            '&w=' + targetWidth +
-            '&h=' + targetHeight +
-            '&fit=cover' +
-            '&a=attention' +
-            '&il';
-        if (isGif) optimizedUrl += '&n=-1&lossless=true';
-        return optimizedUrl;
-    }
+function isValidAvatarUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    var trimmed = url.trim();
+    // Must start with http://, https://, or //
+    if (!/^(https?:)?\/\//i.test(trimmed)) return false;
+    // Reject obviously broken values like "http" (no colon/slashes after)
+    if (trimmed === 'http' || trimmed === 'https' || trimmed === '//') return false;
+    return true;
+}
 
     function getColorFromNickname(nickname, userId) {
         var hash = 0;
@@ -191,18 +173,48 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return 'data:image/svg+xml,' + encodeURIComponent(svgString);
     }
 
-    function getUserAvatarUrl(user, username, userId) {
-        if (user && user.avatar && user.avatar.trim()) {
-            var avatarUrl = user.avatar;
-            if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
-            if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
-                avatarUrl = avatarUrl.replace('http://', 'https://');
-            var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
-            if (optimized) return optimized;
-        }
-        // Fallback to local SVG (no external API, uses forum fonts)
-        return generateLocalSvgAvatar(username, userId);
+function optimizeImageUrl(url, width, height) {
+    if (!isValidAvatarUrl(url)) return null;
+    
+    var lowerUrl = url.toLowerCase();
+    // Skip optimization for already-optimized or data URLs
+    if (lowerUrl.indexOf('weserv.nl') !== -1 ||
+        lowerUrl.indexOf('data:') === 0) {
+        return url;
     }
+    
+    var targetWidth = width || CONFIG.AVATAR_SIZE;
+    var targetHeight = height || CONFIG.AVATAR_SIZE;
+    var isGif = (lowerUrl.indexOf('.gif') !== -1 || /\.gif($|\?|#)/i.test(lowerUrl));
+    var outputFormat = 'webp';
+    var quality = CONFIG.QUALITY;
+    var encodedUrl = encodeURIComponent(url);
+    var optimizedUrl = CONFIG.WESERV_CDN + '?url=' + encodedUrl +
+        '&output=' + outputFormat +
+        '&maxage=' + CONFIG.CACHE +
+        '&q=' + quality +
+        '&w=' + targetWidth +
+        '&h=' + targetHeight +
+        '&fit=cover' +
+        '&a=attention' +
+        '&il';
+    if (isGif) optimizedUrl += '&n=-1&lossless=true';
+    return optimizedUrl;
+}
+
+function getUserAvatarUrl(user, username, userId) {
+    // Try to use the user's custom avatar if it exists and is valid
+    if (user && user.avatar && isValidAvatarUrl(user.avatar)) {
+        var avatarUrl = user.avatar;
+        if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
+        if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
+            avatarUrl = avatarUrl.replace('http://', 'https://');
+        var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
+        if (optimized) return optimized;
+    }
+    // Fallback to local SVG (Quicksand / Bree Serif)
+    return generateLocalSvgAvatar(username, userId);
+}
 
     // ============================================================================
     // HELPER FUNCTIONS

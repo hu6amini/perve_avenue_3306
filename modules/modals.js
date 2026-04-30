@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.2
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style (CSS must be provided by theme). Uses local SVG avatars with Quicksand/Bree Serif fonts. Added relative timestamps for report times (Italian TZ conversion) with local absolute time on hover.
+// @version      7.1
+// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style (CSS must be provided by theme). Uses local SVG avatars with Quicksand/Bree Serif fonts. Added relative timestamps for report times (Italian TZ conversion).
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -962,8 +962,7 @@
             var localDate = italianTimeToLocalDate(r.time);
             var relativeTime = localDate ? getRelativeTimeString(localDate) : r.time;
             var datetimeAttr = localDate ? localDate.toISOString() : '';
-            // Show the converted absolute time (user's local) in the tooltip
-            var titleAttr = localDate ? localDate.toLocaleString() : r.time;
+            var titleAttr = escapeHtml(r.time); // original Italian time on hover
 
             reportsHtml += 
                 '<div class="report-item" data-report-id="' + escapeHtml(r.reportId) + '" data-post-url="' + escapeHtml(r.postUrl) + '">' +

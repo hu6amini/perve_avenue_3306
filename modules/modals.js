@@ -131,7 +131,6 @@
             'backgroundColor=' + backgroundColor,
             'size=48',
             'fontSize=62',
-            'fontFamily=Trebuchet MS',
             'fontWeight=600'
         ];
         return 'https://api.dicebear.com/7.x/initials/svg?' + params.join('&');

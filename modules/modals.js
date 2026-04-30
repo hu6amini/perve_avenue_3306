@@ -964,7 +964,7 @@
             var localDate = italianTimeToLocalDate(r.time);
             var relativeTime = localDate ? getRelativeTimeString(localDate) : r.time;
             var datetimeAttr = localDate ? localDate.toISOString() : '';
-            var titleAttr = escapeHtml(r.time);
+            var titleAttr = localDate ? localDate.toLocaleString() : escapeHtml(r.time);
             
             reportsHtml += 
                 '<div class="report-item" data-report-id="' + escapeHtml(r.reportId) + '" data-post-url="' + escapeHtml(r.postUrl) + '">' +

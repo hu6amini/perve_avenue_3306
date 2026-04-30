@@ -175,7 +175,7 @@ function generateDiceBearAvatar(username, userId) {
         '&backgroundColor=' + backgroundColor +
         '&size=' + CONFIG.AVATAR_SIZE +
         '&fontSize=62' + // Set to 62% of the total size
-        '&fontWeight=400' +
+        '&fontWeight=300' +
         '&radius=50';
 }
 

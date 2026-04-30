@@ -162,17 +162,22 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return AVATAR_COLORS[colorIndex];
     }
 
-    function generateDiceBearAvatar(username, userId) {
-        var displayName = username || 'User';
-        var firstLetter = displayName.charAt(0).toUpperCase();
-        if (!firstLetter.match(/[A-Z0-9]/i)) firstLetter = '?';
-        var backgroundColor = getColorFromNickname(username, userId);
-        return 'https://api.dicebear.com/7.x/initials/svg?' +
-            'seed=' + encodeURIComponent(firstLetter) +
-            '&backgroundColor=' + backgroundColor +
-            '&size=' + CONFIG.AVATAR_SIZE +
-            '&fontSize=32&fontWeight=600&radius=50';
-    }
+function generateDiceBearAvatar(username, userId) {
+    var displayName = username || 'User';
+    var firstLetter = displayName.charAt(0).toUpperCase();
+    if (!firstLetter.match(/[A-Z0-9]/i)) firstLetter = '?';
+    
+    var backgroundColor = getColorFromNickname(username, userId);
+    
+    // Changing fontSize to 62 (approx 61.8%) to follow the Phi ratio
+    return 'https://api.dicebear.com/7.x/initials/svg?' +
+        'seed=' + encodeURIComponent(firstLetter) +
+        '&backgroundColor=' + backgroundColor +
+        '&size=' + CONFIG.AVATAR_SIZE +
+        '&fontSize=62' + // Set to 62% of the total size
+        '&fontWeight=600' +
+        '&radius=50';
+}
 
     function getUserAvatarUrl(user, username, userId) {
         if (user && user.avatar && user.avatar.trim()) {

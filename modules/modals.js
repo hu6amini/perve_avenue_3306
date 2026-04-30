@@ -130,7 +130,7 @@
             'seed=' + encodeURIComponent(firstLetter),
             'backgroundColor=' + backgroundColor,
             'size=48',
-            'fontSize=32',
+            'fontSize=62',
             'fontWeight=600'
         ];
         return 'https://api.dicebear.com/7.x/initials/svg?' + params.join('&');

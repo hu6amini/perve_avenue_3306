@@ -2,6 +2,7 @@
 // Forum Modernizer - Posts Module (API-enhanced, all original functionality preserved)
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
 // ADDED: Relative timestamps for post time and edit info
+// CHANGED: Local SVG avatars with Quicksand/Bree Serif fonts (replaced Dicebear)
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -19,7 +20,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
         QUALITY: 90
     };
 
-    // Avatar colour palette (for dicebear fallback)
+    // Avatar colour palette (for local SVG fallback)
     var AVATAR_COLORS = [
         '059669', '10B981', '34D399', '6EE7B7', 'A7F3D0',
         '0D9488', '14B8A6', '2DD4BF', '5EEAD4', '99F6E4',
@@ -162,22 +163,33 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return AVATAR_COLORS[colorIndex];
     }
 
-function generateDiceBearAvatar(username, userId) {
-    var displayName = username || 'User';
-    var firstLetter = displayName.charAt(0).toUpperCase();
-    if (!firstLetter.match(/[A-Z0-9]/i)) firstLetter = '?';
-    
-    var backgroundColor = getColorFromNickname(username, userId);
-    
-    // Changing fontSize to 62 (approx 61.8%) to follow the Phi ratio
-    return 'https://api.dicebear.com/7.x/initials/svg?' +
-        'seed=' + encodeURIComponent(firstLetter) +
-        '&backgroundColor=' + backgroundColor +
-        '&size=' + CONFIG.AVATAR_SIZE +
-        '&fontSize=62' + // Set to 62% of the total size
-        '&fontWeight=400' +
-        '&radius=50';
-}
+    // Helper to escape text for SVG (prevents injection)
+    function escapeSvgText(str) {
+        return str.replace(/[<>&]/g, function(m) {
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            if (m === '&') return '&amp;';
+            return m;
+        });
+    }
+
+    // NEW: Generate local SVG avatar using Quicksand & Bree Serif fonts
+    function generateLocalSvgAvatar(username, userId) {
+        var displayName = username || 'User';
+        var initial = displayName.charAt(0).toUpperCase();
+        if (!initial.match(/[A-Z0-9]/i)) initial = '?';
+        var bgColor = getColorFromNickname(username, userId);
+        var size = CONFIG.AVATAR_SIZE;
+        var radius = size / 2;
+        var fontSize = Math.floor(size * 0.62); // 62% of total size (Phi ratio)
+        
+        var svgString = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+            '<rect width="100%" height="100%" fill="#' + bgColor + '" rx="' + radius + '" ry="' + radius + '"/>' +
+            '<text x="50%" y="50%" font-family="Quicksand, Bree Serif, sans-serif" font-size="' + fontSize + '" font-weight="500" fill="white" text-anchor="middle" dominant-baseline="central">' + escapeSvgText(initial) + '</text>' +
+            '</svg>';
+        
+        return 'data:image/svg+xml,' + encodeURIComponent(svgString);
+    }
 
     function getUserAvatarUrl(user, username, userId) {
         if (user && user.avatar && user.avatar.trim()) {
@@ -188,7 +200,8 @@ function generateDiceBearAvatar(username, userId) {
             var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
             if (optimized) return optimized;
         }
-        return generateDiceBearAvatar(username, userId);
+        // Fallback to local SVG (no external API, uses forum fonts)
+        return generateLocalSvgAvatar(username, userId);
     }
 
     // ============================================================================
@@ -287,50 +300,50 @@ function generateDiceBearAvatar(username, userId) {
         return { title: title || 'Member', iconClass: iconClass };
     }
 
-function getCleanContent($post) {
-    var contentTable = $post.querySelector('.right.Item table.color');
-    if (!contentTable) return '';
-    var contentClone = contentTable.cloneNode(true);
-    
-    // Remove <br> tags that are directly before .edit elements (to avoid extra line breaks)
-    var editSpans = contentClone.querySelectorAll('.edit');
-    for (var i = 0; i < editSpans.length; i++) {
-        var edit = editSpans[i];
-        var prev = edit.previousSibling;
-        // Walk backwards and remove any element nodes that are <br>
-        while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') {
-            var toRemove = prev;
-            prev = prev.previousSibling;
-            toRemove.remove();
+    function getCleanContent($post) {
+        var contentTable = $post.querySelector('.right.Item table.color');
+        if (!contentTable) return '';
+        var contentClone = contentTable.cloneNode(true);
+        
+        // Remove <br> tags that are directly before .edit elements (to avoid extra line breaks)
+        var editSpans = contentClone.querySelectorAll('.edit');
+        for (var i = 0; i < editSpans.length; i++) {
+            var edit = editSpans[i];
+            var prev = edit.previousSibling;
+            // Walk backwards and remove any element nodes that are <br>
+            while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') {
+                var toRemove = prev;
+                prev = prev.previousSibling;
+                toRemove.remove();
+            }
+            // The .edit itself will be removed in the next step (signatures/edits removal)
         }
-        // The .edit itself will be removed in the next step (signatures/edits removal)
+        
+        // Remove signatures and edit infos
+        var signatures = contentClone.querySelectorAll('.signature, .edit');
+        signatures.forEach(function(el) { if (el && el.remove) el.remove(); });
+        
+        // Remove borders
+        var borders = contentClone.querySelectorAll('.bottomborder');
+        borders.forEach(function(el) { if (el && el.remove) el.remove(); });
+        
+        // Clean up <br> that are next to borders (original behaviour)
+        var breaks = contentClone.querySelectorAll('br');
+        breaks.forEach(function(br) {
+            var prev = br.previousElementSibling;
+            var next = br.nextElementSibling;
+            if ((next && next.classList && next.classList.contains('bottomborder')) ||
+                (prev && prev.classList && prev.classList.contains('bottomborder'))) {
+                if (br.remove) br.remove();
+            }
+        });
+        
+        var html = contentClone.innerHTML || '';
+        html = html.replace(/<p>\s*<\/p>/g, '');
+        html = html.trim();
+        html = transformEmbeddedLinks(html);
+        return html;
     }
-    
-    // Remove signatures and edit infos
-    var signatures = contentClone.querySelectorAll('.signature, .edit');
-    signatures.forEach(function(el) { if (el && el.remove) el.remove(); });
-    
-    // Remove borders
-    var borders = contentClone.querySelectorAll('.bottomborder');
-    borders.forEach(function(el) { if (el && el.remove) el.remove(); });
-    
-    // Clean up <br> that are next to borders (original behaviour)
-    var breaks = contentClone.querySelectorAll('br');
-    breaks.forEach(function(br) {
-        var prev = br.previousElementSibling;
-        var next = br.nextElementSibling;
-        if ((next && next.classList && next.classList.contains('bottomborder')) ||
-            (prev && prev.classList && prev.classList.contains('bottomborder'))) {
-            if (br.remove) br.remove();
-        }
-    });
-    
-    var html = contentClone.innerHTML || '';
-    html = html.replace(/<p>\s*<\/p>/g, '');
-    html = html.trim();
-    html = transformEmbeddedLinks(html);
-    return html;
-}
 
     function getSignatureHtml($post) {
         var signature = $post.querySelector('.signature');
@@ -680,7 +693,7 @@ function getCleanContent($post) {
     }
 
     // ============================================================================
-    // GENERATE MODERN CARD (updated: relative time + relative edit time)
+    // GENERATE MODERN CARD (updated: local SVG avatar, no onerror needed)
     // ============================================================================
     function formatNumber(num) {
         if (!num && num !== 0) return '0';
@@ -697,7 +710,7 @@ function getCleanContent($post) {
         var statusText = isOnline ? 'Online' : 'Offline';
         var avatarUrl = getUserAvatarUrl(user, username, userId);
         var avatarHtml = '<div class="post-avatar-wrapper">' +
-            '<img class="avatar-circle" src="' + avatarUrl + '" alt="Avatar of ' + Utils.escapeHtml(username) + '" width="' + CONFIG.AVATAR_SIZE + '" height="' + CONFIG.AVATAR_SIZE + '" loading="lazy" onerror="this.onerror=null; this.src=\'' + generateDiceBearAvatar(username, userId) + '\';">' +
+            '<img class="avatar-circle" src="' + avatarUrl + '" alt="Avatar of ' + Utils.escapeHtml(username) + '" width="' + CONFIG.AVATAR_SIZE + '" height="' + CONFIG.AVATAR_SIZE + '" loading="lazy">' +
             '<span class="status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
             '</div>';
         var groupName = (user && user.group && user.group.name) ? user.group.name : (data.groupText || 'Member');
@@ -1105,7 +1118,7 @@ function getCleanContent($post) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + local SVG avatars)');
     }
 
     // ============================================================================
@@ -1113,7 +1126,7 @@ function getCleanContent($post) {
     // ============================================================================
     function initialize() {
         if (isInitialized) { console.log('[PostsModule] Already initialized'); return; }
-        console.log('[PostsModule] Initializing API-enhanced version...');
+        console.log('[PostsModule] Initializing API-enhanced version with local SVG avatars...');
         convertAllPosts().catch(err => console.error('[PostsModule] Init error', err));
         isInitialized = true;
         if (typeof globalThis.forumObserver !== 'undefined' && globalThis.forumObserver) {

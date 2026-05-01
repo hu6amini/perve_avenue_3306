@@ -71,6 +71,12 @@ var TwemojiModule = (function() {
 
     function shouldSkipContainer(container) {
         if (!container) return false;
+        
+        // Skip Twitter embed blocks entirely (prevent breaking widget replacement)
+        if (container.matches && container.matches('.twitter-tweet')) return true;
+        if (container.closest && container.closest('.twitter-tweet')) return true;
+        
+        // Skip editor / picker areas
         if (container.closest && container.closest('.ve-emoji-dropdown')) return true;
         if (container.closest && container.closest('.ve-content.color')) return true;
         if (container.matches) {
@@ -78,6 +84,7 @@ var TwemojiModule = (function() {
         }
         if (container.closest && container.closest('[contenteditable="true"]')) return true;
         if (container.getAttribute && container.getAttribute('contenteditable') === 'true') return true;
+        
         return false;
     }
 
@@ -130,7 +137,7 @@ var TwemojiModule = (function() {
             }
         }
 
-        // Replace Unicode emojis using Twemoji
+        // Replace Unicode emojis using Twemoji (skip if container is a Twitter block)
         if (window.twemoji && window.twemoji.parse) {
             if (!shouldSkipContainer(container)) {
                 if (sync === true) {
@@ -243,7 +250,7 @@ var TwemojiModule = (function() {
         console.log('TwemojiModule initializing...');
         await waitForTwemoji();
         await waitForForumObserver();
-        initEmojiReplacement(); // this now does synchronous initial replacement
+        initEmojiReplacement();
         initialized = true;
         console.log('TwemojiModule ready');
         

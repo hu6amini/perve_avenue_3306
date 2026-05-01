@@ -80,7 +80,7 @@ const SCRIPT_URLS = [
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@be3f0b0/core/event-bus.js",
     
     // Forum Core Observer (must be before modules that use it)
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@de3f849/forum_core_observer.js",
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@de06084/forum_core_observer.js",
     
     // Modules (each will wait for forum-observer-ready internally)
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@54f32c0/core/media-dimensions.js",

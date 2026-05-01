@@ -93,6 +93,7 @@ const SCRIPT_URLS = [
 ];
 
 async function loadAllScripts() {
+    // 1. Load all critical scripts (including Twemoji, observer, modules, etc.)
     for (var i = 0; i < SCRIPT_URLS.length; i++) {
         var url = SCRIPT_URLS[i];
         try {
@@ -104,11 +105,25 @@ async function loadAllScripts() {
             banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#c00;color:#fff;padding:8px;text-align:center;z-index:99999;';
             banner.textContent = 'Forum Enhancer: Failed to load ' + url + '. Please refresh the page.';
             document.body.appendChild(banner);
-            break;
+            return;  // Stop loading
         }
     }
-    
-    // Add instant.page script (non-critical, type="module") after all critical scripts
+
+    // 2. Load platform social media widgets (Twitter, Instagram) – self-contained, async
+    var platformScripts = [
+        "https://platform.twitter.com/widgets.js",
+        "https://platform.instagram.com/en_US/embeds.js"
+    ];
+    for (var i = 0; i < platformScripts.length; i++) {
+        var script = document.createElement("script");
+        script.src = platformScripts[i];
+        script.async = true;
+        script.referrerPolicy = "no-referrer";
+        document.head.appendChild(script);
+        console.log('Platform script queued: ' + platformScripts[i]);
+    }
+
+    // 3. Add instant.page as a module (non-critical)
     var instantPageScript = document.createElement("script");
     Object.assign(instantPageScript, {
         src: "https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js",

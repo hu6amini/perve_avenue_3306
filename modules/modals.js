@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.5
-// @description  Replaces old likes popup, report modal, and admin report-notify modal – dedicated observer for likes popup style.
+// @version      7.6
+// @description  Replaces old likes popup, report modal, and admin report-notify modal – uses ForumCoreObserver exclusively.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -449,7 +449,7 @@ var ModalsModule = (function() {
                 '</div>' +
             '</div>' +
             '<div class="modern-modal-footer">' +
-                '<i class="fa-regular fa-clock" aria-hidden="true"></i> ' + currentTime + ' \u00b7 post feedback' +
+                '<i class="fa-regular fa-clock" aria-hidden="true"></i> ' + currentTime + ' · post feedback' +
             '</div>';
 
         overlay.appendChild(modal);
@@ -1135,7 +1135,7 @@ var ModalsModule = (function() {
         document.addEventListener('keydown', escHandler);
     }
 
-    // ========== INITIALIZATION ==========
+    // ========== INITIALIZATION – ONLY USES FORUMCORE OBSERVER ==========
     async function waitForForumObserver() {
         if (globalThis.forumObserver) return true;
         return new Promise((resolve) => {
@@ -1169,43 +1169,24 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // --- Likes popup: use a dedicated MutationObserver because ForumCoreObserver does not re-process style changes of already seen elements ---
-        var likesObserver = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                    var overlay = mutation.target;
-                    if (overlay && overlay.classList && (overlay.classList.contains('pop_points') || overlay.id === 'overlay')) {
-                        var display = overlay.style.display;
-                        if (display === 'block' && !processingModal && !currentModal) {
-                            var userIds = extractUserIdsFromLegacyModal(overlay);
-                            if (userIds.length > 0) {
-                                showModernModal(userIds, overlay, getTriggerElement());
-                            }
-                        }
+        // Likes popup – register with reprocessOnStyle: true so it fires every time the style changes to visible
+        globalThis.forumObserver.register({
+            id: 'modern-likes-modal',
+            selector: '.popup.pop_points, #overlay.pop_points',
+            priority: 'high',
+            reprocessOnStyle: true,   // CRITICAL: re‑invoke callback when style changes from none → block
+            callback: function(node) {
+                // Only act if the node is visible (display: block)
+                if (node && node.style && node.style.display === 'block') {
+                    var userIds = extractUserIdsFromLegacyModal(node);
+                    if (userIds.length > 0 && !currentModal) {
+                        showModernModal(userIds, node, getTriggerElement());
                     }
                 }
-            });
+            }
         });
 
-        var overlayElement = document.querySelector('.popup.pop_points, #overlay.pop_points');
-        if (overlayElement) {
-            likesObserver.observe(overlayElement, { attributes: true, attributeFilter: ['style'] });
-        } else {
-            // If the element doesn't exist yet, watch for its addition
-            var bodyObserver = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                    mutation.addedNodes.forEach(function(node) {
-                        if (node.nodeType === 1 && node.matches && node.matches('.popup.pop_points, #overlay.pop_points')) {
-                            likesObserver.observe(node, { attributes: true, attributeFilter: ['style'] });
-                            bodyObserver.disconnect();
-                        }
-                    });
-                });
-            });
-            bodyObserver.observe(document.body, { childList: true, subtree: true });
-        }
-
-        // Report and report-notify modals can still use ForumCoreObserver because they are dynamically created and removed
+        // Report modals – these are recreated each time, so no need for reprocessOnStyle
         globalThis.forumObserver.register({
             id: 'modern-report-modal',
             selector: '.ff-modal.modal.report-modal, .report-modal',
@@ -1226,7 +1207,7 @@ var ModalsModule = (function() {
                 }
             }
         });
-        console.log('[Modern Modals] Registered with ForumCoreObserver (likes popup uses dedicated observer)');
+        console.log('[Modern Modals] Registered with ForumCoreObserver (likes modal uses reprocessOnStyle flag)');
     }
 
     // Module export

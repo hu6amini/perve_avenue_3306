@@ -100,7 +100,6 @@ async function loadAllScripts() {
             console.log('Loaded: ' + url);
         } catch (err) {
             console.error('Aborting further loads because critical script failed:', url, err);
-            // Optionally show a user-visible error banner
             var banner = document.createElement('div');
             banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#c00;color:#fff;padding:8px;text-align:center;z-index:99999;';
             banner.textContent = 'Forum Enhancer: Failed to load ' + url + '. Please refresh the page.';
@@ -108,9 +107,20 @@ async function loadAllScripts() {
             break;
         }
     }
+    
+    // Add instant.page script (non-critical, type="module") after all critical scripts
+    var instantPageScript = document.createElement("script");
+    Object.assign(instantPageScript, {
+        src: "https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js",
+        type: "module",
+        crossOrigin: "anonymous",
+        referrerPolicy: "no-referrer"
+    });
+    document.body.appendChild(instantPageScript);
+    console.log('Loaded instant.page');
 }
 
-// Instant page preload (non‑critical)
+// Preload instant.page (so it's cached early)
 var instantPagePreload = document.createElement("link");
 Object.assign(instantPagePreload, {
     rel: "preload",

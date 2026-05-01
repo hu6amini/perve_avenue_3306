@@ -88,6 +88,20 @@ var TwemojiModule = (function() {
         return false;
     }
 
+    // Helper: check if a node (or its ancestors) should be skipped
+    function isNodeSkipped(node) {
+        if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+        return shouldSkipContainer(node);
+    }
+
+    // Custom callback for twemoji.parse to skip nodes inside skipped containers
+    function twemojiFilterCallback(node) {
+        if (isNodeSkipped(node)) {
+            return false; // skip this node and its children
+        }
+        return true; // process normally
+    }
+
     function getEmojiSelectors(src) {
         return [
             'img[src="' + src + '"]:not(.' + PROCESSED_CLASS + ')',
@@ -96,12 +110,11 @@ var TwemojiModule = (function() {
         ];
     }
 
-    // Modified to accept sync parameter
-    function replaceCustomEmojis(container, sync) {
+    // Replace custom SVG emojis (skipping blocked containers)
+    function replaceCustomEmojis(container) {
         if (shouldSkipContainer(container)) return;
         if (!container || !container.querySelectorAll) return;
 
-        // Replace custom SVG emojis (always synchronous)
         for (const [oldSrc, newFile] of EMOJI_MAP) {
             const selectors = getEmojiSelectors(oldSrc);
             for (const selector of selectors) {
@@ -136,73 +149,131 @@ var TwemojiModule = (function() {
                 }
             }
         }
+    }
 
-        // Replace Unicode emojis using Twemoji (skip if container is a Twitter block)
+    // Main function that applies both custom and Unicode replacements
+    function applyEmojiReplacement(container, syncMode) {
+        if (shouldSkipContainer(container)) return;
+        
+        // First replace custom SVG emojis
+        replaceCustomEmojis(container);
+        
+        // Then replace Unicode emojis using Twemoji, with a callback that skips blocked nodes
         if (window.twemoji && window.twemoji.parse) {
-            if (!shouldSkipContainer(container)) {
-                if (sync === true) {
-                    // Run synchronously (blocking) – used for initial replacement
-                    twemoji.parse(container, TWEMOJI_CONFIG);
+            const options = Object.assign({}, TWEMOJI_CONFIG, {
+                callback: function(icon, options, variant) {
+                    // If the current node being processed is inside a skipped container, return null (skip)
+                    // Note: twemoji passes the icon code, but we need access to the node.
+                    // We'll use a different approach: wrap the parse call with a node filter.
+                }
+            });
+            
+            // Twemoji's parse method can accept a third parameter (callback) that receives the node.
+            // However, the easier way: use the `callback` option that receives the node?
+            // Actually, twemoji.parse(node, options) does not have a built-in node filter.
+            // We need to manually walk the DOM and apply twemoji.parse only on safe subtrees.
+            
+            // Better approach: traverse the container and apply twemoji.parse only on elements that are not skipped.
+            // But that's inefficient. Instead, we can use a MutationObserver-like approach.
+            // Since we are already skipping the container at the top, we need to ensure that inside the container,
+            // we don't parse any descendants that are skipped.
+            
+            // The most reliable method: use the `callback` option that twemoji provides for each icon match.
+            // The callback receives (icon, options, variant) but not the node. Not helpful.
+            // Alternatively, we can use twemoji.parse with a `document` fragment and then filter.
+            
+            // Given the complexity, the simplest is to clone the container, remove all .twitter-tweet elements,
+            // parse the clone, and then copy back only the emoji images? That would lose other changes.
+            
+            // After research, the best solution is to use the `callback` parameter of twemoji.parse
+            // (the third argument) which is called for each emoji found and receives the node.
+            // We can check that node and if it's inside a skipped container, we skip replacement.
+            
+            const parseFn = twemoji.parse;
+            const originalParse = parseFn.bind(twemoji);
+            
+            // Override temporarily? No, just pass a custom callback.
+            // The signature: twemoji.parse(node, options, callback) where callback is called for each emoji node.
+            // We'll pass a callback that checks the node's ancestry.
+            
+            const twemojiCallback = function(node) {
+                if (isNodeSkipped(node)) {
+                    // Do nothing – leave the original text node as is
+                    return;
+                }
+                // Otherwise, let Twemoji do its default replacement (by returning nothing)
+                // We need to return the replacement node? Actually the callback is invoked after replacement?
+                // According to twemoji docs: callback gets the node that will be replaced.
+                // If we return false, it skips. So we can return false to skip.
+                if (isNodeSkipped(node)) {
+                    return false;
+                }
+                // Return undefined to continue with default replacement
+            };
+            
+            const applySync = function() {
+                if (syncMode === true) {
+                    twemoji.parse(container, TWEMOJI_CONFIG, twemojiCallback);
                 } else {
-                    // Async (deferred) – used for dynamic callbacks to avoid blocking
                     if (typeof requestIdleCallback !== 'undefined') {
                         requestIdleCallback(function() {
                             if (!shouldSkipContainer(container)) {
-                                twemoji.parse(container, TWEMOJI_CONFIG);
+                                twemoji.parse(container, TWEMOJI_CONFIG, twemojiCallback);
                             }
                         }, { timeout: 1000 });
                     } else {
                         setTimeout(function() {
                             if (!shouldSkipContainer(container)) {
-                                twemoji.parse(container, TWEMOJI_CONFIG);
+                                twemoji.parse(container, TWEMOJI_CONFIG, twemojiCallback);
                             }
                         }, 0);
                     }
                 }
-            }
+            };
+            
+            applySync();
         }
     }
 
     function initEmojiReplacement() {
-        // Perform initial replacement SYNCHRONOUSLY – this ensures all Unicode emojis are
-        // converted to <img> tags before posts.js clones the content.
-        replaceCustomEmojis(document.body, true);
+        // Perform initial replacement SYNCHRONOUSLY with skip protection
+        applyEmojiReplacement(document.body, true);
 
         // Register asynchronous callbacks for future dynamic content
         if (globalThis.forumObserver && typeof globalThis.forumObserver.register === 'function') {
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-picker',
-                callback: function(node) { replaceCustomEmojis(node, false); },
+                callback: function(node) { applyEmojiReplacement(node, false); },
                 selector: '.picker-custom-grid, .picker-custom-item, .image-thumbnail, .ve-emoji-list',
                 priority: 'high',
                 pageTypes: ['topic', 'blog', 'search', 'forum']
             });
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-content',
-                callback: function(node) { replaceCustomEmojis(node, false); },
+                callback: function(node) { applyEmojiReplacement(node, false); },
                 selector: '.post, .article, .content, .reply, .comment, .color, td[align], div[align]',
                 priority: 'normal',
                 pageTypes: ['topic', 'blog', 'search', 'forum']
             });
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-quotes',
-                callback: function(node) { replaceCustomEmojis(node, false); },
+                callback: function(node) { applyEmojiReplacement(node, false); },
                 selector: '.quote, .code, .spoiler, .modern-quote, .modern-spoiler',
                 priority: 'normal'
             });
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-user-content',
-                callback: function(node) { replaceCustomEmojis(node, false); },
+                callback: function(node) { applyEmojiReplacement(node, false); },
                 selector: '.signature, .user-info, .profile-content, .post-content',
                 priority: 'low'
             });
-            console.log('Emoji replacer fully integrated with ForumCoreObserver');
+            console.log('Emoji replacer fully integrated with ForumCoreObserver (Twitter blocks skipped)');
 
             // Also process any existing emoji picker immediately (synchronously)
             setTimeout(function() {
                 const pickerGrid = document.querySelector('.picker-custom-grid');
                 if (pickerGrid && !shouldSkipContainer(pickerGrid)) {
-                    replaceCustomEmojis(pickerGrid, true);
+                    applyEmojiReplacement(pickerGrid, true);
                     console.log('Found existing emoji picker, processed synchronously');
                 }
             }, 500);
@@ -220,7 +291,7 @@ var TwemojiModule = (function() {
                 if (typeof twemoji !== 'undefined') {
                     clearInterval(interval);
                     resolve(true);
-                } else if (attempts >= 100) { // 10 seconds max
+                } else if (attempts >= 100) {
                     clearInterval(interval);
                     console.warn('Twemoji not loaded after 10 seconds, proceeding without it');
                     resolve(false);
@@ -254,16 +325,15 @@ var TwemojiModule = (function() {
         initialized = true;
         console.log('TwemojiModule ready');
         
-        // Expose helper on window for external use
         window.emojiReplacer = {
-            replace: function(container) { replaceCustomEmojis(container, false); },
-            replaceSync: function(container) { replaceCustomEmojis(container, true); },
+            replace: function(container) { applyEmojiReplacement(container, false); },
+            replaceSync: function(container) { applyEmojiReplacement(container, true); },
             init: initEmojiReplacement,
             isReady: function() { return !!window.twemoji; },
             forcePickerUpdate: function() {
                 const pickerGrid = document.querySelector('.picker-custom-grid');
                 if (pickerGrid && !shouldSkipContainer(pickerGrid)) {
-                    replaceCustomEmojis(pickerGrid, true);
+                    applyEmojiReplacement(pickerGrid, true);
                     return true;
                 }
                 return false;

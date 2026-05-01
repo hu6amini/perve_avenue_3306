@@ -31,6 +31,7 @@ class ForumCoreObserver {
     
     #callbacks = new Map();
     #debouncedCallbacks = new Map();
+    #styleReprocessCallbacks = new Set(); // NEW: stores ids of callbacks that need style-reprocessing
     #pageState = this.#detectPageState();
     
     #scriptsReady = {
@@ -669,7 +670,7 @@ class ForumCoreObserver {
     }
     
     #handleMutations(mutations) {
-        // Filter out editor mutations FIRST
+        // Filter out editor mutations
         const filteredMutations = [];
         for (let i = 0; i < mutations.length; i++) {
             const mutation = mutations[i];
@@ -901,6 +902,7 @@ class ForumCoreObserver {
     
     async #processMutationBatch(mutations, priority) {
         const affectedNodes = new Set();
+        const styleChangeNodes = new Set(); // Nodes that became visible via style change
         
         for (let i = 0; i < mutations.length; i++) {
             const mutation = mutations[i];
@@ -935,6 +937,16 @@ class ForumCoreObserver {
                     
                 case 'attributes':
                     if (mutation.target && !this.#isInEditor(mutation.target)) {
+                        // Special handling for style attribute changes that reveal an element
+                        if (mutation.attributeName === 'style') {
+                            const oldDisplay = this.#getDisplayFromStyle(mutation.oldValue);
+                            const newDisplay = this.#getDisplayFromStyle(mutation.target.getAttribute('style') || '');
+                            // Check if the element transitioned from hidden to visible (block or inline-block)
+                            if ((oldDisplay === 'none' || oldDisplay === null) && 
+                                (newDisplay === 'block' || newDisplay === 'inline-block')) {
+                                styleChangeNodes.add(mutation.target);
+                            }
+                        }
                         affectedNodes.add(mutation.target);
                         
                         if (mutation.attributeName === 'data-theme') {
@@ -969,38 +981,26 @@ class ForumCoreObserver {
             }
         }
         
-        const nodeArray = Array.from(affectedNodes);
-        const nodesToProcess = [];
-        
-        for (let k = 0; k < nodeArray.length; k++) {
-            const node = nodeArray[k];
+        // Process normal added/affected nodes (skip if already processed)
+        for (const node of affectedNodes) {
             if (node && !this.#processedNodes.has(node)) {
-                nodesToProcess.push(node);
-                this.#nodeTimestamps.set(node, Date.now());
+                await this.#processNode(node);
             }
         }
         
-        if (!nodesToProcess.length) return;
-        
-        this.#mutationMetrics.totalNodesProcessed += nodesToProcess.length;
-        
-        const CONCURRENCY_LIMIT = priority === 'high' ? 8 : priority === 'medium' ? 4 : 2;
-        const chunks = [];
-        
-        for (let l = 0; l < nodesToProcess.length; l += CONCURRENCY_LIMIT) {
-            chunks.push(nodesToProcess.slice(l, l + CONCURRENCY_LIMIT));
-        }
-        
-        for (let m = 0; m < chunks.length; m++) {
-            const chunk = chunks[m];
-            const promises = [];
-            
-            for (let n = 0; n < chunk.length; n++) {
-                promises.push(this.#processNode(chunk[n]));
+        // Process style change nodes (force re-process even if already processed)
+        for (const node of styleChangeNodes) {
+            if (node && this.#styleReprocessCallbacks.size > 0) {
+                await this.#processNode(node, { styleChange: true });
             }
-            
-            await Promise.allSettled(promises);
         }
+    }
+    
+    // Helper to extract display value from style string
+    #getDisplayFromStyle(styleString) {
+        if (!styleString) return null;
+        const match = styleString.match(/display\s*:\s*([^;]+)/);
+        return match ? match[1].trim() : null;
     }
     
     #observeShadowRoot(shadowRoot, host) {
@@ -1083,12 +1083,13 @@ class ForumCoreObserver {
         }
     }
     
-    async #processNode(node) {
-        if (!node || this.#processedNodes.has(node)) return;
+    async #processNode(node, options = {}) {
+        if (!node) return;
         
-        if (this.#isInEditor(node)) {
-            return;
-        }
+        // For regular processing, skip if already processed
+        if (!options.styleChange && this.#processedNodes.has(node)) return;
+        
+        if (this.#isInEditor(node)) return;
         
         const matchingCallbacks = this.#getMatchingCallbacks(node);
         if (!matchingCallbacks || !matchingCallbacks.length) return;
@@ -1104,15 +1105,13 @@ class ForumCoreObserver {
             const callback = matchingCallbacks[i];
             if (!callback) continue;
             
+            // If this is a styleChange-triggered reprocess, only include callbacks that have reprocessOnStyle = true
+            if (options.styleChange && !callback.reprocessOnStyle) continue;
+            
             let priority = callback.priority || 'normal';
+            if (!priorityGroups[priority]) priority = 'normal';
             
-            if (!priorityGroups[priority]) {
-                priority = 'normal';
-            }
-            
-            if (callback.retryCount > (callback.maxRetries || ForumCoreObserver.#CONFIG.memory.maxCallbackRetries)) {
-                continue;
-            }
+            if (callback.retryCount > (callback.maxRetries || ForumCoreObserver.#CONFIG.memory.maxCallbackRetries)) continue;
             
             priorityGroups[priority].push(callback);
         }
@@ -1131,8 +1130,11 @@ class ForumCoreObserver {
             }
         }
         
-        this.#processedNodes.add(node);
-        this.#nodeTimestamps.set(node, Date.now());
+        // Mark node as processed only if we are not in styleChange mode (i.e., normal processing)
+        if (!options.styleChange) {
+            this.#processedNodes.add(node);
+            this.#nodeTimestamps.set(node, Date.now());
+        }
     }
     
     #getMatchingCallbacks(node) {
@@ -1465,6 +1467,7 @@ class ForumCoreObserver {
             selector: settings.selector,
             pageTypes: settings.pageTypes,
             dependencies: settings.dependencies,
+            reprocessOnStyle: settings.reprocessOnStyle || false, // NEW
             retryCount: 0,
             maxRetries: settings.maxRetries || ForumCoreObserver.#CONFIG.memory.maxCallbackRetries,
             createdAt: performance.now(),
@@ -1472,7 +1475,11 @@ class ForumCoreObserver {
         };
         
         this.#callbacks.set(id, callback);
-        this.#log('Registered GLOBAL callback: ' + id + ' (priority: ' + callback.priority + ')');
+        if (callback.reprocessOnStyle) {
+            this.#styleReprocessCallbacks.add(id);
+        }
+        
+        this.#log('Registered GLOBAL callback: ' + id + ' (priority: ' + callback.priority + ', reprocessOnStyle: ' + callback.reprocessOnStyle + ')');
         
         if (this.#initialScanComplete && callback.selector) {
             try {
@@ -1535,6 +1542,7 @@ class ForumCoreObserver {
         
         if (this.#callbacks.has(callbackId)) {
             this.#callbacks.delete(callbackId);
+            this.#styleReprocessCallbacks.delete(callbackId);
             removed = true;
         }
         
@@ -1623,7 +1631,8 @@ class ForumCoreObserver {
                 pendingTimeouts: this.#debounceTimeouts.size,
                 themeDependent: Array.from(this.#callbacks.values()).filter(c => 
                     c && c.dependencies && c.dependencies.includes('theme')
-                ).length
+                ).length,
+                reprocessOnStyle: this.#styleReprocessCallbacks.size
             },
             nodes: {
                 processed: this.#processedNodes.size,
@@ -1686,6 +1695,7 @@ class ForumCoreObserver {
         
         this.#callbacks.clear();
         this.#debouncedCallbacks.clear();
+        this.#styleReprocessCallbacks.clear();
         this.#processedNodes = new WeakSet();
         this.#nodeTimestamps.clear();
         this.#iframeObservers = new WeakMap();
@@ -1762,7 +1772,7 @@ if (!globalThis.forumObserver) {
             }
         }, { once: true });
         
-        console.log('🚀 ForumCoreObserver ready (ENHANCED GLOBAL MODE) with editor skipping');
+        console.log('🚀 ForumCoreObserver ready (ENHANCED GLOBAL MODE) with editor skipping and style reprocessing');
         
     } catch (error) {
         console.error('Failed to initialize ForumCoreObserver:', error);

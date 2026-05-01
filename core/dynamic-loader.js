@@ -86,7 +86,7 @@ const SCRIPT_URLS = [
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@54f32c0/core/media-dimensions.js",
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@5cca0ae/core/twemoji.js",
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@4fbf14e/modules/posts.js",
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@5602b99/modules/modals.js",
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@cf89d04/modules/modals.js",
     
     // Main enhancer (last)
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@7f0ee7b/core/forum-enhancer.js"

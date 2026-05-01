@@ -89,10 +89,12 @@ var TwemojiModule = (function() {
         ];
     }
 
-    function replaceCustomEmojis(container) {
+    // Modified to accept sync parameter
+    function replaceCustomEmojis(container, sync) {
         if (shouldSkipContainer(container)) return;
         if (!container || !container.querySelectorAll) return;
 
+        // Replace custom SVG emojis (always synchronous)
         for (const [oldSrc, newFile] of EMOJI_MAP) {
             const selectors = getEmojiSelectors(oldSrc);
             for (const selector of selectors) {
@@ -128,62 +130,73 @@ var TwemojiModule = (function() {
             }
         }
 
+        // Replace Unicode emojis using Twemoji
         if (window.twemoji && window.twemoji.parse) {
             if (!shouldSkipContainer(container)) {
-                if (typeof requestIdleCallback !== 'undefined') {
-                    requestIdleCallback(function() {
-                        if (!shouldSkipContainer(container)) {
-                            twemoji.parse(container, TWEMOJI_CONFIG);
-                        }
-                    }, { timeout: 1000 });
+                if (sync === true) {
+                    // Run synchronously (blocking) – used for initial replacement
+                    twemoji.parse(container, TWEMOJI_CONFIG);
                 } else {
-                    setTimeout(function() {
-                        if (!shouldSkipContainer(container)) {
-                            twemoji.parse(container, TWEMOJI_CONFIG);
-                        }
-                    }, 0);
+                    // Async (deferred) – used for dynamic callbacks to avoid blocking
+                    if (typeof requestIdleCallback !== 'undefined') {
+                        requestIdleCallback(function() {
+                            if (!shouldSkipContainer(container)) {
+                                twemoji.parse(container, TWEMOJI_CONFIG);
+                            }
+                        }, { timeout: 1000 });
+                    } else {
+                        setTimeout(function() {
+                            if (!shouldSkipContainer(container)) {
+                                twemoji.parse(container, TWEMOJI_CONFIG);
+                            }
+                        }, 0);
+                    }
                 }
             }
         }
     }
 
     function initEmojiReplacement() {
-        replaceCustomEmojis(document.body);
+        // Perform initial replacement SYNCHRONOUSLY – this ensures all Unicode emojis are
+        // converted to <img> tags before posts.js clones the content.
+        replaceCustomEmojis(document.body, true);
 
+        // Register asynchronous callbacks for future dynamic content
         if (globalThis.forumObserver && typeof globalThis.forumObserver.register === 'function') {
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-picker',
-                callback: replaceCustomEmojis,
+                callback: function(node) { replaceCustomEmojis(node, false); },
                 selector: '.picker-custom-grid, .picker-custom-item, .image-thumbnail, .ve-emoji-list',
                 priority: 'high',
                 pageTypes: ['topic', 'blog', 'search', 'forum']
             });
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-content',
-                callback: replaceCustomEmojis,
+                callback: function(node) { replaceCustomEmojis(node, false); },
                 selector: '.post, .article, .content, .reply, .comment, .color, td[align], div[align]',
                 priority: 'normal',
                 pageTypes: ['topic', 'blog', 'search', 'forum']
             });
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-quotes',
-                callback: replaceCustomEmojis,
+                callback: function(node) { replaceCustomEmojis(node, false); },
                 selector: '.quote, .code, .spoiler, .modern-quote, .modern-spoiler',
                 priority: 'normal'
             });
             globalThis.forumObserver.register({
                 id: 'emoji-replacer-user-content',
-                callback: replaceCustomEmojis,
+                callback: function(node) { replaceCustomEmojis(node, false); },
                 selector: '.signature, .user-info, .profile-content, .post-content',
                 priority: 'low'
             });
             console.log('Emoji replacer fully integrated with ForumCoreObserver');
 
+            // Also process any existing emoji picker immediately (synchronously)
             setTimeout(function() {
                 const pickerGrid = document.querySelector('.picker-custom-grid');
                 if (pickerGrid && !shouldSkipContainer(pickerGrid)) {
-                    console.log('Found existing emoji picker, processing...');
-                    replaceCustomEmojis(pickerGrid);
+                    replaceCustomEmojis(pickerGrid, true);
+                    console.log('Found existing emoji picker, processed synchronously');
                 }
             }, 500);
         } else {
@@ -230,19 +243,20 @@ var TwemojiModule = (function() {
         console.log('TwemojiModule initializing...');
         await waitForTwemoji();
         await waitForForumObserver();
-        initEmojiReplacement();
+        initEmojiReplacement(); // this now does synchronous initial replacement
         initialized = true;
         console.log('TwemojiModule ready');
         
         // Expose helper on window for external use
         window.emojiReplacer = {
-            replace: replaceCustomEmojis,
+            replace: function(container) { replaceCustomEmojis(container, false); },
+            replaceSync: function(container) { replaceCustomEmojis(container, true); },
             init: initEmojiReplacement,
             isReady: function() { return !!window.twemoji; },
             forcePickerUpdate: function() {
                 const pickerGrid = document.querySelector('.picker-custom-grid');
                 if (pickerGrid && !shouldSkipContainer(pickerGrid)) {
-                    replaceCustomEmojis(pickerGrid);
+                    replaceCustomEmojis(pickerGrid, true);
                     return true;
                 }
                 return false;

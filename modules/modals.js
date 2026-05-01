@@ -2,7 +2,7 @@
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
 // @version      7.4
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style.
+// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – relies only on ForumCoreObserver.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -1147,38 +1147,14 @@ var ModalsModule = (function() {
         document.addEventListener('keydown', escHandler);
     }
 
-    // ========== INITIALIZATION – only forumCoreObserver, no fallback ==========
-    async function waitForForumObserver() {
-        // If already available, return immediately
-        if (globalThis.forumObserver && typeof globalThis.forumObserver.register === 'function') {
-            console.log('[Modals] ForumCoreObserver already present');
-            return true;
-        }
-        // Otherwise wait for the ready event
-        return new Promise((resolve) => {
-            var handler = function() {
-                window.removeEventListener('forum-observer-ready', handler);
-                console.log('[Modals] ForumCoreObserver ready event received');
-                resolve(true);
-            };
-            window.addEventListener('forum-observer-ready', handler);
-            // Timeout after 5 seconds – if not ready, log error and resolve false
-            setTimeout(function() {
-                window.removeEventListener('forum-observer-ready', handler);
-                console.error('[Modals] ForumCoreObserver not ready after 5 seconds – modals will not work');
-                resolve(false);
-            }, 5000);
-        });
-    }
+    // ========== INITIALIZATION (synchronous, relies only on global forumObserver) ==========
+    var initialized = false;
 
-    async function init() {
-        var observerReady = await waitForForumObserver();
-        if (!observerReady) {
-            console.error('[Modals] Aborting initialisation – ForumCoreObserver unavailable');
-            return;
-        }
+    function init() {
+        if (initialized) return;
+        initialized = true;
 
-        // Ensure Font Awesome is loaded (CSS only)
+        // Ensure Font Awesome is loaded
         if (!document.querySelector('link[href*="font-awesome"], link[href*="fa.css"]')) {
             var faLink = document.createElement('link');
             faLink.rel = 'stylesheet';
@@ -1188,52 +1164,52 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // Register all three modal types with the global observer
-        globalThis.forumObserver.register({
-            id: 'modern-likes-modal',
-            selector: '.popup.pop_points, #overlay.pop_points',
-            priority: 'high',
-            callback: function(node) {
-                if (node && node.style && node.style.display === 'block') {
-                    var userIds = extractUserIdsFromLegacyModal(node);
-                    if (userIds.length > 0 && !currentModal) {
-                        showModernModal(userIds, node, getTriggerElement());
+        // ---- Strict dependency on ForumCoreObserver ----
+        if (globalThis.forumObserver && typeof globalThis.forumObserver.register === 'function') {
+            globalThis.forumObserver.register({
+                id: 'modern-likes-modal',
+                selector: '.popup.pop_points, #overlay.pop_points',
+                priority: 'high',
+                callback: function(node) {
+                    if (node && node.style && node.style.display === 'block') {
+                        var userIds = extractUserIdsFromLegacyModal(node);
+                        if (userIds.length > 0 && !currentModal) {
+                            showModernModal(userIds, node, getTriggerElement());
+                        }
                     }
                 }
-            }
-        });
-
-        globalThis.forumObserver.register({
-            id: 'modern-report-modal',
-            selector: '.ff-modal.modal.report-modal, .report-modal',
-            priority: 'high',
-            callback: function(node) {
-                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportModal) {
-                    showModernReportModal(node, getTriggerElement());
+            });
+            globalThis.forumObserver.register({
+                id: 'modern-report-modal',
+                selector: '.ff-modal.modal.report-modal, .report-modal',
+                priority: 'high',
+                callback: function(node) {
+                    if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportModal) {
+                        showModernReportModal(node, getTriggerElement());
+                    }
                 }
-            }
-        });
-
-        globalThis.forumObserver.register({
-            id: 'modern-report-notify-modal',
-            selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
-            priority: 'high',
-            callback: function(node) {
-                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportNotifyModal) {
-                    showModernReportNotifyModal(node, getTriggerElement());
+            });
+            globalThis.forumObserver.register({
+                id: 'modern-report-notify-modal',
+                selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
+                priority: 'high',
+                callback: function(node) {
+                    if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportNotifyModal) {
+                        showModernReportNotifyModal(node, getTriggerElement());
+                    }
                 }
-            }
-        });
-
-        console.log('[Modern Modals] Successfully registered all modal handlers with ForumCoreObserver');
+            });
+            console.log('[Modern Modals] Registered with ForumCoreObserver');
+        } else {
+            console.error('[Modern Modals] ForumCoreObserver not available – modals will not work.');
+        }
     }
 
-    // Module export – called by ForumEnhancer
-    var initialized = false;
-    async function initialize() {
+    // Module export – called by ForumEnhancer after DOM ready
+    function initialize() {
         if (initialized) return;
-        await init();
-        initialized = true;
+        // DOM is already ready because ForumEnhancer waits for it
+        init();
     }
 
     return {

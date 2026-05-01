@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.4
+// @version      7.5
 // @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style.
 // @author       You
 // @match        *://*.forumfree.it/*
@@ -1083,6 +1083,19 @@ var ModalsModule = (function() {
                 detailsDiv.setAttribute('role', 'link');
                 avatarDiv.setAttribute('aria-label', 'Go to reported post');
                 detailsDiv.setAttribute('aria-label', 'Go to reported post');
+                // Add keydown for accessibility
+                avatarDiv.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        goToPost(e);
+                    }
+                });
+                detailsDiv.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        goToPost(e);
+                    }
+                });
             }
         }
 
@@ -1135,6 +1148,33 @@ var ModalsModule = (function() {
         document.addEventListener('keydown', escHandler);
     }
 
+    // ========== HELPER: STRICT VISIBILITY CHECK ==========
+    function isElementActuallyVisible(el) {
+        if (!el) return false;
+        // Check inline style first (fast)
+        if (el.style.display === 'none') return false;
+        // Check computed style
+        var style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        // Check if element has non-zero size
+        var rect = el.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return false;
+        // Check if any ancestor has display: none
+        var parent = el.parentElement;
+        while (parent && parent !== document.body) {
+            var parentStyle = window.getComputedStyle(parent);
+            if (parentStyle.display === 'none') return false;
+            parent = parent.parentElement;
+        }
+        // Additional: for modal overlays, ensure it's positioned as a popup (fixed or absolute with high z-index)
+        // This helps ignore static placeholder elements.
+        if (style.position !== 'fixed' && style.position !== 'absolute') {
+            // Some modals may be shown as block but not positioned – fallback: check if it's a direct child of body and has overlay-like class
+            if (el.parentElement !== document.body) return false;
+        }
+        return true;
+    }
+
     // ========== INITIALIZATION (no fallback, no DOMContentLoaded) ==========
     async function waitForForumObserver() {
         if (globalThis.forumObserver) return true;
@@ -1157,7 +1197,6 @@ var ModalsModule = (function() {
     async function initialize() {
         if (initialized) return;
         
-        // Wait only for forum observer – DOM is already ready (forum-enhancer ensures it)
         var observerReady = await waitForForumObserver();
         if (!observerReady || !globalThis.forumObserver) {
             console.error('[Modern Modals] ForumCoreObserver not available – modals will not work');
@@ -1174,49 +1213,42 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // Register modal handlers with the global observer
+        // Likes modal
         globalThis.forumObserver.register({
             id: 'modern-likes-modal',
             selector: '.popup.pop_points, #overlay.pop_points',
             priority: 'high',
             callback: function(node) {
-                // Check if modal is visible – use getComputedStyle for reliability
-                var style = window.getComputedStyle(node);
-                var isVisible = style.display !== 'none' && style.visibility !== 'hidden';
-                if (isVisible) {
-                    var userIds = extractUserIdsFromLegacyModal(node);
-                    if (userIds.length > 0 && !currentModal) {
-                        showModernModal(userIds, node, getTriggerElement());
-                    }
+                if (!isElementActuallyVisible(node)) return;
+                if (processingModal || currentModal) return;
+                var userIds = extractUserIdsFromLegacyModal(node);
+                if (userIds.length > 0) {
+                    showModernModal(userIds, node, getTriggerElement());
                 }
             }
         });
 
+        // User report modal
         globalThis.forumObserver.register({
             id: 'modern-report-modal',
             selector: '.ff-modal.modal.report-modal, .report-modal',
             priority: 'high',
             callback: function(node) {
-                var style = window.getComputedStyle(node);
-                var isVisible = (style.display === 'inline-block' || style.display === 'block') &&
-                                style.visibility !== 'hidden';
-                if (isVisible && !currentReportModal) {
-                    showModernReportModal(node, getTriggerElement());
-                }
+                if (!isElementActuallyVisible(node)) return;
+                if (reportProcessing || currentReportModal) return;
+                showModernReportModal(node, getTriggerElement());
             }
         });
 
+        // Admin report notify modal
         globalThis.forumObserver.register({
             id: 'modern-report-notify-modal',
             selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
             priority: 'high',
             callback: function(node) {
-                var style = window.getComputedStyle(node);
-                var isVisible = (style.display === 'inline-block' || style.display === 'block') &&
-                                style.visibility !== 'hidden';
-                if (isVisible && !currentReportNotifyModal) {
-                    showModernReportNotifyModal(node, getTriggerElement());
-                }
+                if (!isElementActuallyVisible(node)) return;
+                if (reportNotifyProcessing || currentReportNotifyModal) return;
+                showModernReportNotifyModal(node, getTriggerElement());
             }
         });
 

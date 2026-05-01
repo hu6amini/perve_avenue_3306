@@ -1,5 +1,8 @@
 document.documentElement.lang = "en";
 
+// ============================================================================
+// STYLESHEETS (preload + async load)
+// ============================================================================
 const STYLESHEETS = Object.freeze([
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@888654e/lightgallery@2.7.1/lightgallery.min.css",
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@e44a482/lightgallery@2.7.1/lg-zoom.min.css",
@@ -11,34 +14,55 @@ const STYLESHEETS = Object.freeze([
     "https://cdnjs.cloudflare.com/ajax/libs/lite-youtube-embed/0.3.3/lite-yt-embed.min.css"
 ]);
 
-STYLESHEETS.forEach((e) => {
-    const n = document.createElement("link");
+STYLESHEETS.forEach(function(e) {
+    var n = document.createElement("link");
     n.rel = "preload";
     n.as = "style";
     n.href = e;
-    const t = document.createElement("link");
+    var t = document.createElement("link");
     t.rel = "stylesheet";
     t.href = e;
     t.media = "print";
-    t.onload = () => t.media = "all";
+    t.onload = function() { t.media = "all"; };
     document.head.append(n, t);
 });
 
-const instantPagePreload = document.createElement("link");
-Object.assign(instantPagePreload, {
-    rel: "preload",
-    as: "script",
-    href: "https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js",
-    crossOrigin: "anonymous"
-});
-document.head.appendChild(instantPagePreload);
+// ============================================================================
+// SCRIPT LOADER WITH RETRIES
+// ============================================================================
+function loadScript(src, retries, delayMs) {
+    retries = retries || 3;
+    delayMs = delayMs || 1000;
+    return new Promise(function(resolve, reject) {
+        var attempt = 0;
+        function tryLoad() {
+            var script = document.createElement('script');
+            script.src = src;
+            script.defer = true;
+            script.crossOrigin = "anonymous";
+            script.referrerPolicy = "no-referrer";
+            script.onload = function() { resolve(); };
+            script.onerror = function() {
+                attempt++;
+                if (attempt < retries) {
+                    console.warn('Failed to load ' + src + ', retrying (' + attempt + '/' + retries + ')...');
+                    setTimeout(tryLoad, delayMs * attempt);
+                } else {
+                    console.error('Failed to load ' + src + ' after ' + retries + ' attempts');
+                    reject(new Error('Script load failed: ' + src));
+                }
+            };
+            document.head.appendChild(script);
+        }
+        tryLoad();
+    });
+}
 
-(() => {
-    const e = () => {
-       const e = Object.freeze([
-    // ============================================
-    // 1. EXTERNAL LIBRARIES (Third-party)
-    // ============================================
+// ============================================================================
+// SCRIPT ORDER (critical dependencies first)
+// ============================================================================
+const SCRIPT_URLS = [
+    // External libraries (required by modules)
     "https://cdnjs.cloudflare.com/ajax/libs/twemoji-js/14.0.2/twemoji.min.js",
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@77a2243/lightgallery@2.7.1/lightgallery.min.js",
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@e44a482/lightgallery@2.7.1/lg-zoom.min.js",
@@ -51,105 +75,60 @@ document.head.appendChild(instantPagePreload);
     "https://cdnjs.cloudflare.com/ajax/libs/lite-youtube-embed/0.3.3/lite-yt-embed.js",
     "https://cdn.jsdelivr.net/npm/lite-vimeo-embed@0.3.0/+esm",
     
-    // ============================================
-    // 2. FORUM ENHANCER CORE UTILITIES
-    // ============================================
+    // Core utilities (no dependencies)
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@c7477a9/core/dom-utils.js",
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@be3f0b0/core/event-bus.js",
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@1d5426d/core/media-dimensions.js",
     
-    // ============================================
-    // 3. MUTATION OBSERVER (MOVE THIS BEFORE twemoji.js)
-    // ============================================
+    // Forum Core Observer (must be before modules that use it)
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@8909aa9/forum_core_observer.js",
     
-    // ============================================
-    // 4. TWEMOJI MODULE (depends on twemoji library AND forum observer)
-    // ============================================
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@2ee17a4/core/twemoji.js",
-    
-    // ============================================
-    // 5. ENHANCEMENT MODULES
-    // ============================================
+    // Modules (each will wait for forum-observer-ready internally)
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@.../core/media-dimensions.js",   // replace with actual URL
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@.../core/twemoji.js",            // replace with actual URL
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@4fbf14e/modules/posts.js",
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@e7bda90/modules/modals.js",
     
-    // ============================================
-    // 6. MAIN ENHANCER (MUST BE LAST)
-    // ============================================
+    // Main enhancer (last)
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@7792393/core/forum-enhancer.js"
-]);
-        
-        requestIdleCallback(() => {
-            // Load main scripts with defer (they need to execute in order)
-            const n = e.map((e) => new Promise((n, t) => {
-                const s = document.createElement("script");
-                
-                // Special handling for ES module
-                if (e.includes('+esm')) {
-                    Object.assign(s, {
-                        src: e,
-                        type: 'module',
-                        crossOrigin: "anonymous",
-                        referrerPolicy: "no-referrer",
-                        onload: n,
-                        onerror: t
-                    });
-                } else {
-                    Object.assign(s, {
-                        src: e,
-                        defer: true,
-                        crossOrigin: "anonymous",
-                        referrerPolicy: "no-referrer",
-                        onload: n,
-                        onerror: t
-                    });
-                }
-                
-                document.head.appendChild(s);
-            }));
-            
-            Promise.allSettled(n).finally(() => {
-                // Load platform scripts with async (they're self-contained and don't depend on order)
-                const platformScripts = [
-                    "https://platform.twitter.com/widgets.js",
-                    "https://platform.instagram.com/en_US/embeds.js"
-                ];
-                
-                platformScripts.forEach((src) => {
-                    const script = document.createElement("script");
-                    Object.assign(script, {
-                        src: src,
-                        async: true,
-                        referrerPolicy: "no-referrer"
-                    });
-                    document.head.appendChild(script);
-                });
-                
-                // Add instant.page script
-                const instantPage = document.createElement("script");
-                Object.assign(instantPage, {
-                    src: "https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js",
-                    type: "module",
-                    crossOrigin: "anonymous",
-                    referrerPolicy: "no-referrer"
-                });
-                document.body.appendChild(instantPage);
-                
-                // Add Google CSE script
-                const googleCSE = document.createElement("script");
-                Object.assign(googleCSE, {
-                    src: "https://cse.google.com/cse.js?cx=45791748ee9234378",
-                    async: true,
-                    referrerPolicy: "no-referrer"
-                });
-                document.body.appendChild(googleCSE);
-            });
-        });
-    };
-    
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", e);
-    } else {
-        e();
+];
+
+async function loadAllScripts() {
+    for (var i = 0; i < SCRIPT_URLS.length; i++) {
+        var url = SCRIPT_URLS[i];
+        try {
+            await loadScript(url, 3, 1000);
+            console.log('Loaded: ' + url);
+        } catch (err) {
+            console.error('Aborting further loads because critical script failed:', url, err);
+            // Optionally show a user-visible error banner
+            var banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#c00;color:#fff;padding:8px;text-align:center;z-index:99999;';
+            banner.textContent = 'Forum Enhancer: Failed to load ' + url + '. Please refresh the page.';
+            document.body.appendChild(banner);
+            break;
+        }
     }
-})();
+}
+
+// Instant page preload (non‑critical)
+var instantPagePreload = document.createElement("link");
+Object.assign(instantPagePreload, {
+    rel: "preload",
+    as: "script",
+    href: "https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.min.js",
+    crossOrigin: "anonymous"
+});
+document.head.appendChild(instantPagePreload);
+
+// Start loading when DOM ready
+function startLoading() {
+    loadAllScripts().catch(function(e) {
+        console.error('Dynamic loader error:', e);
+    });
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", startLoading);
+} else {
+    startLoading();
+}

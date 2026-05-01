@@ -33,7 +33,6 @@ class ForumCoreObserver {
     #debouncedCallbacks = new Map();
     #pageState = this.#detectPageState();
     
-    // Script readiness tracking
     #scriptsReady = {
         weserv: false,
         dimensionExtractor: false
@@ -93,6 +92,12 @@ class ForumCoreObserver {
         this.#setupAnimationObserver();
         this.#setupErrorHandling();
         this.#setupPerformanceMonitoring();
+        
+        // Dispatch ready event after everything is initialised
+        queueMicrotask(() => {
+            window.dispatchEvent(new CustomEvent('forum-observer-ready', { detail: { timestamp: Date.now() } }));
+            if (this.#debug) console.log('[ForumObserver] Ready event dispatched');
+        });
     }
     
     #log(...args) {
@@ -107,28 +112,18 @@ class ForumCoreObserver {
         this.#mutationMetrics.lastError = args.join(' ');
     }
     
-    // ===== EDITOR DETECTION HELPER =====
     #isInEditor(element) {
         if (!element || element.nodeType !== Node.ELEMENT_NODE) return false;
-        
         try {
-            // Check if element or any parent is in wysiwyg editor
             if (element.closest) {
-                return !!(
-                    element.closest('.tiptap') ||
+                return !!(element.closest('.tiptap') ||
                     element.closest('.ProseMirror') ||
                     element.closest('[contenteditable="true"]') ||
-                    element.closest('[role="textbox"]')
-                );
+                    element.closest('[role="textbox"]'));
             }
-            
-            // Fallback for older browsers
             let parent = element;
             while (parent && parent !== document.body) {
-                if (parent.classList && (
-                    parent.classList.contains('tiptap') ||
-                    parent.classList.contains('ProseMirror')
-                )) {
+                if (parent.classList && (parent.classList.contains('tiptap') || parent.classList.contains('ProseMirror'))) {
                     return true;
                 }
                 if (parent.getAttribute && parent.getAttribute('contenteditable') === 'true') {
@@ -481,7 +476,7 @@ class ForumCoreObserver {
                     requestIdleCallback(() => {
                         const unprocessed = document.querySelectorAll('img:not([width])');
                         if (unprocessed.length) {
-                            this.#log(`Processing ${unprocessed.length} missed images`);
+                            this.#log('Processing ' + unprocessed.length + ' missed images');
                             unprocessed.forEach(img => {
                                 if (img && !this.#isInEditor(img)) {
                                     globalThis.mediaDimensionExtractor.forceReprocessElement(img);
@@ -493,7 +488,7 @@ class ForumCoreObserver {
                     setTimeout(() => {
                         const unprocessed = document.querySelectorAll('img:not([width])');
                         if (unprocessed.length) {
-                            this.#log(`Processing ${unprocessed.length} missed images`);
+                            this.#log('Processing ' + unprocessed.length + ' missed images');
                             unprocessed.forEach(img => {
                                 if (img && !this.#isInEditor(img)) {
                                     globalThis.mediaDimensionExtractor.forceReprocessElement(img);
@@ -556,7 +551,7 @@ class ForumCoreObserver {
     #setupThemeListener() {
         window.addEventListener('themechange', (e) => {
             const { theme } = e.detail || { theme: 'light' };
-            this.#log(`Theme change detected: ${theme}`);
+            this.#log('Theme change detected: ' + theme);
             this.#pageState = this.#detectPageState();
             this.#notifyThemeDependentCallbacks(theme);
             this.#rescanThemeSensitiveElements(theme);
@@ -592,7 +587,7 @@ class ForumCoreObserver {
                         callback.fn(document.documentElement, newTheme);
                     }
                 } catch (error) {
-                    this.#error(`Theme callback ${callback ? callback.id : 'unknown'} failed:`, error);
+                    this.#error('Theme callback ' + (callback ? callback.id : 'unknown') + ' failed:', error);
                 }
             });
         }
@@ -680,7 +675,6 @@ class ForumCoreObserver {
             const mutation = mutations[i];
             const target = mutation.target;
             
-            // Skip editor content completely
             if (target && target.nodeType === Node.ELEMENT_NODE) {
                 if (this.#isInEditor(target)) {
                     continue;
@@ -694,7 +688,6 @@ class ForumCoreObserver {
             filteredMutations.push(mutation);
         }
         
-        // Process only non-editor mutations
         if (filteredMutations.length === 0) return;
         
         this.#mutationMetrics.totalMutations += filteredMutations.length;
@@ -757,12 +750,10 @@ class ForumCoreObserver {
         
         if (!target) return false;
         
-        // Skip mutations from our own scripts
         if (target.dataset && target.dataset.observerOrigin === 'forum-script') {
             return false;
         }
         
-        // Skip hidden elements
         if (target.nodeType === Node.ELEMENT_NODE) {
             try {
                 const style = window.getComputedStyle(target);
@@ -1095,7 +1086,6 @@ class ForumCoreObserver {
     async #processNode(node) {
         if (!node || this.#processedNodes.has(node)) return;
         
-        // Skip editor content completely
         if (this.#isInEditor(node)) {
             return;
         }
@@ -1362,7 +1352,7 @@ class ForumCoreObserver {
         }
         
         if (cleanupCount > 0) {
-            this.#log(`Cleaned up ${cleanupCount} old nodes`);
+            this.#log('Cleaned up ' + cleanupCount + ' old nodes');
         }
         
         if (this.#nodeTimestamps.size > ForumCoreObserver.#CONFIG.memory.maxProcessedNodes) {
@@ -1531,7 +1521,7 @@ class ForumCoreObserver {
             try {
                 settings.callback(document.documentElement, currentTheme);
             } catch (error) {
-                this.#error(`Theme-aware callback ${callbackId} failed on init:`, error);
+                this.#error('Theme-aware callback ' + callbackId + ' failed on init:', error);
             }
         });
         

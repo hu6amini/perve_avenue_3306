@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.2
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style. Uses DOM‑based initial avatars (no SVG) for reliable font display. Added Italian timezone conversion for relative report times.
+// @version      7.3
+// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
 // @grant        none
 // ==/UserScript==
 
-(function() {
+var ModalsModule = (function() {
     'use strict';
 
     // ========== STATE (Likes) ==========
@@ -81,7 +81,6 @@
     // ========== RELATIVE TIME HELPERS (with Italian timezone conversion) ==========
     function parseDateFromTitle(title) {
         if (!title) return null;
-        // Normalise title: remove extra colon+seconds (e.g., "10:13 PM:40" → "10:13 PM")
         title = title.replace(/(\d{1,2}):(\d{2})\s*(AM|PM)?:(\d+)/i, '$1:$2 $3');
         var hasMeridiem = /[ap]m/i.test(title);
         var nums = title.match(/\d+/g);
@@ -127,7 +126,6 @@
         return rtf.format(-years, 'year');
     }
 
-    // Convert Italian local timestamp (DD/MM/YYYY HH:MM) to a Date object in the user's local time
     function italianTimeToLocalDate(dateStr) {
         var parts = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
         if (!parts) return null;
@@ -163,7 +161,7 @@
         return new Date(realUtcMs);
     }
 
-    // ========== AVATAR HANDLING (custom image + fallback to initial letter) ==========
+    // ========== AVATAR HANDLING ==========
     function isValidAvatarUrl(url) {
         if (!url || typeof url !== 'string') return false;
         var trimmed = url.trim();
@@ -204,7 +202,6 @@
         };
     }
 
-    // Returns object describing avatar: either type: 'img' with url, or type: 'initial' with initial and bgColor
     function getAvatarData(user, username, userId) {
         if (user && user.avatar && isValidAvatarUrl(user.avatar)) {
             var avatarUrl = user.avatar;
@@ -214,14 +211,12 @@
             var optimized = optimizeImageUrl(avatarUrl, WESERV_CONFIG.avatarWidth, WESERV_CONFIG.avatarHeight);
             if (optimized && optimized.url) return { type: 'img', url: optimized.url };
         }
-        // Fallback to initial letter
         var initial = username ? username.charAt(0).toUpperCase() : '?';
         if (!initial.match(/[A-Z0-9]/i)) initial = '?';
         var bgColor = getColorFromNickname(username, userId);
         return { type: 'initial', initial: initial, bgColor: bgColor };
     }
 
-    // ========== HELPER FUNCTIONS ==========
     function storeProfileLinks(legacyModal) {
         var userLinks = legacyModal.querySelectorAll('.users li a');
         for (var i = 0; i < userLinks.length; i++) {
@@ -594,7 +589,7 @@
         processingModal = false;
     }
 
-    // ========== USER REPORT MODAL (single report) ==========
+    // ========== USER REPORT MODAL ==========
     function autoGrowTextarea(textarea) {
         if (!textarea) return;
         textarea.style.height = 'auto';
@@ -939,8 +934,6 @@
         var reportsHtml = '';
         for (var i = 0; i < reports.length; i++) {
             var r = reports[i];
-            
-            // Get avatar data (custom image or initial)
             var avatarData = getAvatarData(null, r.username, r.reportId);
             var avatarHtml = '';
             if (avatarData.type === 'img') {
@@ -948,8 +941,6 @@
             } else {
                 avatarHtml = '<div class="modal-initial-avatar" style="background-color: #' + avatarData.bgColor + ';">' + escapeHtml(avatarData.initial) + '</div>';
             }
-            
-            // Convert Italian timestamp to local time, then to relative
             var localDate = italianTimeToLocalDate(r.time);
             var relativeTime = localDate ? getRelativeTimeString(localDate) : r.time;
             var datetimeAttr = localDate ? localDate.toISOString() : '';
@@ -1092,18 +1083,6 @@
                 detailsDiv.setAttribute('role', 'link');
                 avatarDiv.setAttribute('aria-label', 'Go to reported post');
                 detailsDiv.setAttribute('aria-label', 'Go to reported post');
-                avatarDiv.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        window.location.href = postUrl;
-                    }
-                });
-                detailsDiv.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        window.location.href = postUrl;
-                    }
-                });
             }
         }
 
@@ -1156,8 +1135,27 @@
         document.addEventListener('keydown', escHandler);
     }
 
-    // ========== INITIALIZATION ==========
-    function init() {
+    // ========== INITIALIZATION (now async) ==========
+    async function waitForForumObserver() {
+        if (globalThis.forumObserver) return true;
+        return new Promise((resolve) => {
+            const handler = () => {
+                window.removeEventListener('forum-observer-ready', handler);
+                resolve(true);
+            };
+            window.addEventListener('forum-observer-ready', handler);
+            setTimeout(() => {
+                window.removeEventListener('forum-observer-ready', handler);
+                console.warn('Modals: ForumObserver not ready after 5 seconds, proceeding anyway');
+                resolve(false);
+            }, 5000);
+        });
+    }
+
+    async function init() {
+        await waitForForumObserver();
+        
+        // Ensure Font Awesome is loaded
         if (!document.querySelector('link[href*="font-awesome"], link[href*="fa.css"]')) {
             var faLink = document.createElement('link');
             faLink.rel = 'stylesheet';
@@ -1254,9 +1252,20 @@
         }
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+    // Module export
+    var initialized = false;
+    async function initialize() {
+        if (initialized) return;
+        if (document.readyState === 'loading') {
+            await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve));
+        }
+        await init();
+        initialized = true;
     }
+
+    return {
+        initialize: initialize,
+        name: 'modals',
+        dependencies: ['forumObserver']
+    };
 })();

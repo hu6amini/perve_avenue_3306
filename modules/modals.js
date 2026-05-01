@@ -2,7 +2,7 @@
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
 // @version      7.5
-// @description  Replaces old likes popup, report modal, and admin report-notify modal – relies solely on ForumCoreObserver. Improved likes popup detection.
+// @description  Replaces old likes popup, report modal, and admin report-notify modal – pure ForumCoreObserver, with retry for likes modal.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -24,7 +24,6 @@ var ModalsModule = (function() {
     var firstFocusable = null;
     var lastFocusable = null;
     var isDialogPolyfilled = false;
-    var likesProcessingMap = new WeakSet(); // prevent double processing same modal
 
     // ========== STATE (Report - user) ==========
     var currentReportModal = null;
@@ -66,12 +65,6 @@ var ModalsModule = (function() {
     ];
 
     var userProfileLinks = new Map();
-
-    // Enable debug logging (set to true to see console logs)
-    var DEBUG = false;
-    function log() {
-        if (DEBUG) console.log.apply(console, ['[Modals]'].concat(Array.from(arguments)));
-    }
 
     // ========== HELPER: GET COLOR FROM NICKNAME ==========
     function getColorFromNickname(nickname, userId) {
@@ -424,8 +417,6 @@ var ModalsModule = (function() {
         processingModal = false;
         if (triggerElement && triggerElement.focus) triggerElement.focus();
         triggerElement = null;
-        // Remove from processing map
-        if (legacyModal) likesProcessingMap.delete(legacyModal);
     }
 
     function createModalStructure(userIds, legacyModal) {
@@ -1144,10 +1135,10 @@ var ModalsModule = (function() {
         document.addEventListener('keydown', escHandler);
     }
 
-    // ========== INITIALIZATION (only via ForumCoreObserver) ==========
+    // ========== INITIALIZATION (pure ForumCoreObserver, no fallback) ==========
     async function waitForForumObserver() {
         if (globalThis.forumObserver) return true;
-        return new Promise((resolve) => {
+        return new Promise(function(resolve) {
             var handler = function() {
                 window.removeEventListener('forum-observer-ready', handler);
                 resolve(true);
@@ -1155,7 +1146,7 @@ var ModalsModule = (function() {
             window.addEventListener('forum-observer-ready', handler);
             setTimeout(function() {
                 window.removeEventListener('forum-observer-ready', handler);
-                console.warn('[Modals] ForumCoreObserver not ready after 5 seconds – modals will not be enhanced.');
+                console.warn('[Modals] ForumCoreObserver not ready after 5 seconds – modern modals disabled.');
                 resolve(false);
             }, 5000);
         });
@@ -1178,39 +1169,41 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // Likes modal callback - improved detection
+        // Likes modal with retry for style visibility
         globalThis.forumObserver.register({
             id: 'modern-likes-modal',
             selector: '.popup.pop_points, #overlay.pop_points',
             priority: 'high',
             callback: function(node) {
-                // Only process if the node is currently visible
-                // Use getComputedStyle for reliable detection (works even if style is set via class)
-                var isVisible = node && node.nodeType === Node.ELEMENT_NODE && 
-                                window.getComputedStyle(node).display === 'block';
-                log('Likes modal callback triggered', node, 'visible:', isVisible);
-                if (isVisible && !processingModal && !currentModal && !likesProcessingMap.has(node)) {
-                    likesProcessingMap.add(node);
+                if (!node) return;
+                // Limit retries to avoid infinite loops
+                if (node._likesModalRetryCount === undefined) node._likesModalRetryCount = 0;
+                if (node._likesModalRetryCount > 3) return;
+
+                if (node.style.display === 'block') {
                     var userIds = extractUserIdsFromLegacyModal(node);
-                    if (userIds.length > 0) {
-                        log('Showing modern likes modal for', userIds.length, 'users');
+                    if (userIds.length > 0 && !currentModal) {
                         showModernModal(userIds, node, getTriggerElement());
-                    } else {
-                        log('No user IDs found in legacy modal');
                     }
+                    node._likesModalRetryCount = 0;
+                } else {
+                    node._likesModalRetryCount++;
+                    var self = node;
+                    setTimeout(function() {
+                        if (globalThis.forumObserver && self.isConnected) {
+                            globalThis.forumObserver.forceReprocess(self);
+                        }
+                    }, 100);
                 }
             }
         });
-        
+
         globalThis.forumObserver.register({
             id: 'modern-report-modal',
             selector: '.ff-modal.modal.report-modal, .report-modal',
             priority: 'high',
             callback: function(node) {
-                var isVisible = node && (node.style.display === 'inline-block' || node.style.display === 'block' ||
-                                 window.getComputedStyle(node).display !== 'none');
-                log('Report modal callback', node, 'visible:', isVisible);
-                if (isVisible && !reportProcessing && !currentReportModal) {
+                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportModal) {
                     showModernReportModal(node, getTriggerElement());
                 }
             }
@@ -1220,10 +1213,7 @@ var ModalsModule = (function() {
             selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
             priority: 'high',
             callback: function(node) {
-                var isVisible = node && (node.style.display === 'inline-block' || node.style.display === 'block' ||
-                                 window.getComputedStyle(node).display !== 'none');
-                log('Report notify modal callback', node, 'visible:', isVisible);
-                if (isVisible && !reportNotifyProcessing && !currentReportNotifyModal) {
+                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportNotifyModal) {
                     showModernReportNotifyModal(node, getTriggerElement());
                 }
             }

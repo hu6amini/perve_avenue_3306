@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.1
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style. Uses local SVG avatars with Quicksand/Bree Serif fonts. Added Italian timezone conversion for relative report times.
+// @version      7.2
+// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – consistent Midnight Emerald style. Uses DOM‑based initial avatars (no SVG) for reliable font display. Added Italian timezone conversion for relative report times.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -66,7 +66,7 @@
 
     var userProfileLinks = new Map();
 
-    // ========== LOCAL SVG AVATAR GENERATOR (Quicksand + Bree Serif) ==========
+    // ========== HELPER: GET COLOR FROM NICKNAME ==========
     function getColorFromNickname(nickname, userId) {
         var hash = 0;
         var str = nickname || userId || 'user';
@@ -76,33 +76,6 @@
         }
         var colorIndex = Math.abs(hash) % AVATAR_COLORS.length;
         return AVATAR_COLORS[colorIndex];
-    }
-
-    function escapeSvgText(str) {
-        if (!str) return '';
-        return str.replace(/[<>&]/g, function(m) {
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            if (m === '&') return '&amp;';
-            return m;
-        });
-    }
-
-    function generateLocalSvgAvatar(username, userId, size) {
-        size = size || 48;
-        var displayName = username || 'User';
-        var initial = displayName.charAt(0).toUpperCase();
-        if (!initial.match(/[A-Z0-9]/i)) initial = '?';
-        var bgColor = getColorFromNickname(username, userId);
-        var radius = size / 2;
-        var fontSize = Math.floor(size * 0.62); // 62% of total (Phi ratio)
-        
-        var svgString = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-            '<rect width="100%" height="100%" fill="#' + bgColor + '" rx="' + radius + '" ry="' + radius + '"/>' +
-            '<text x="50%" y="50%" font-family="Quicksand, Bree Serif, sans-serif" font-size="' + fontSize + '" font-weight="600" fill="white" text-anchor="middle" dominant-baseline="central">' + escapeSvgText(initial) + '</text>' +
-            '</svg>';
-        
-        return 'data:image/svg+xml,' + encodeURIComponent(svgString);
     }
 
     // ========== RELATIVE TIME HELPERS (with Italian timezone conversion) ==========
@@ -190,40 +163,37 @@
         return new Date(realUtcMs);
     }
 
-    // ========== HELPER FUNCTIONS ==========
+    // ========== AVATAR HANDLING (custom image + fallback to initial letter) ==========
+    function isValidAvatarUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        var trimmed = url.trim();
+        if (!/^(https?:)?\/\//i.test(trimmed)) return false;
+        if (trimmed === 'http' || trimmed === 'https' || trimmed === '//') return false;
+        return true;
+    }
+
     function optimizeImageUrl(url, width, height) {
-        if (!url) return { url: url, quality: null, format: null, isGif: false };
+        if (!isValidAvatarUrl(url)) return { url: url, quality: null, format: null, isGif: false };
         var lowerUrl = url.toLowerCase();
-        if (lowerUrl.indexOf('weserv.nl') !== -1 ||
-            lowerUrl.indexOf('dicebear.com') !== -1 ||
-            lowerUrl.indexOf('api.dicebear.com') !== -1) {
+        if (lowerUrl.indexOf('weserv.nl') !== -1 || lowerUrl.indexOf('data:') === 0) {
             return { url: url, quality: null, format: null, isGif: false };
         }
-        if (url.indexOf('data:') === 0) return { url: url, quality: null, format: null, isGif: false };
-
         var targetWidth = width || WESERV_CONFIG.avatarWidth;
         var targetHeight = height || WESERV_CONFIG.avatarHeight;
-        var isGif = (lowerUrl.indexOf('.gif') !== -1 ||
-                     lowerUrl.indexOf('.gif?') !== -1 ||
-                     lowerUrl.indexOf('.gif#') !== -1 ||
-                     /\.gif($|\?|#)/i.test(lowerUrl));
-
+        var isGif = (lowerUrl.indexOf('.gif') !== -1 || /\.gif($|\?|#)/i.test(lowerUrl));
         var outputFormat = 'webp';
         var quality = WESERV_CONFIG.quality;
-
         var encodedUrl = encodeURIComponent(url);
         var optimizedUrl = WESERV_CONFIG.cdn + '?url=' + encodedUrl +
-                           '&output=' + outputFormat +
-                           '&maxage=' + WESERV_CONFIG.cache +
-                           '&q=' + quality +
-                           '&w=' + targetWidth +
-                           '&h=' + targetHeight +
-                           '&fit=cover' +
-                           '&a=attention' +
-                           '&il';
-        if (isGif) {
-            optimizedUrl += '&n=-1&lossless=true';
-        }
+            '&output=' + outputFormat +
+            '&maxage=' + WESERV_CONFIG.cache +
+            '&q=' + quality +
+            '&w=' + targetWidth +
+            '&h=' + targetHeight +
+            '&fit=cover' +
+            '&a=attention' +
+            '&il';
+        if (isGif) optimizedUrl += '&n=-1&lossless=true';
         return {
             url: optimizedUrl,
             quality: quality,
@@ -234,29 +204,24 @@
         };
     }
 
-    function isValidAvatar(avatarUrl) {
-        if (!avatarUrl || typeof avatarUrl !== 'string') return false;
-        var lowerUrl = avatarUrl.toLowerCase();
-        if (lowerUrl === 'http' || lowerUrl === 'http:' || lowerUrl === 'https' || lowerUrl === 'https:') return false;
-        if (lowerUrl === '' || lowerUrl === 'null' || lowerUrl === 'undefined') return false;
-        if (!lowerUrl.startsWith('http://') && !lowerUrl.startsWith('https://') && !lowerUrl.startsWith('//')) return false;
-        return true;
+    // Returns object describing avatar: either type: 'img' with url, or type: 'initial' with initial and bgColor
+    function getAvatarData(user, username, userId) {
+        if (user && user.avatar && isValidAvatarUrl(user.avatar)) {
+            var avatarUrl = user.avatar;
+            if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
+            if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
+                avatarUrl = avatarUrl.replace('http://', 'https://');
+            var optimized = optimizeImageUrl(avatarUrl, WESERV_CONFIG.avatarWidth, WESERV_CONFIG.avatarHeight);
+            if (optimized && optimized.url) return { type: 'img', url: optimized.url };
+        }
+        // Fallback to initial letter
+        var initial = username ? username.charAt(0).toUpperCase() : '?';
+        if (!initial.match(/[A-Z0-9]/i)) initial = '?';
+        var bgColor = getColorFromNickname(username, userId);
+        return { type: 'initial', initial: initial, bgColor: bgColor };
     }
 
-    function getUserAvatarSync(user) {
-        var avatarUrl = user.avatar;
-        if (!isValidAvatar(avatarUrl)) {
-            // Fallback to local SVG (no external API)
-            var localSvg = generateLocalSvgAvatar(user.nickname, user.id, 48);
-            return { url: localSvg, quality: null, format: 'svg', isGif: false, width: 48, height: 48 };
-        }
-        if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
-        if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:') {
-            avatarUrl = avatarUrl.replace('http://', 'https://');
-        }
-        return optimizeImageUrl(avatarUrl, 48, 48);
-    }
-
+    // ========== HELPER FUNCTIONS ==========
     function storeProfileLinks(legacyModal) {
         var userLinks = legacyModal.querySelectorAll('.users li a');
         for (var i = 0; i < userLinks.length; i++) {
@@ -553,31 +518,48 @@
             for (var i = 0; i < sortedUsers.length; i++) {
                 var user = sortedUsers[i];
                 var roleInfo = getUserRoleInfo(user);
-                var avatarData = getUserAvatarSync(user);
-                var avatarUrl = avatarData.url;
-                // Local SVG fallback (no external API)
-                var localSvgFallback = generateLocalSvgAvatar(user.nickname, user.id, 48);
+                var avatarData = getAvatarData(user, user.nickname, user.id);
                 var statusText = user.status || 'offline';
                 var statusClass = user.status === 'online' ? 'online' : (user.status === 'idle' ? 'idle' : (user.status === 'dnd' ? 'dnd' : 'offline'));
                 var escapedNickname = escapeHtml(user.nickname);
 
-                itemsHtml += 
-                    '<div class="modern-like-item" data-user-id="' + user.id + '" tabindex="0" role="button" aria-label="View profile of ' + escapedNickname + '">' +
-                        '<div class="modern-like-avatar-wrapper">' +
-                            '<img class="modern-like-avatar" src="' + avatarUrl + '" alt="Avatar of ' + escapedNickname + '" loading="lazy" decoding="async" width="48" height="48" data-user-id="' + user.id + '" onerror="this.onerror=null; this.src=\'' + localSvgFallback + '\';">' +
-                            '<span class="modern-status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
-                        '</div>' +
-                        '<div class="modern-like-info" data-user-id="' + user.id + '">' +
-                            '<div class="modern-like-name-row">' +
-                                '<span class="modern-like-name" data-user-id="' + user.id + '">' + escapedNickname + '</span>' +
-                                '<span class="modern-role-badge ' + roleInfo.class + '">' + escapeHtml(roleInfo.text) + '</span>' +
+                if (avatarData.type === 'img') {
+                    itemsHtml += 
+                        '<div class="modern-like-item" data-user-id="' + user.id + '" tabindex="0" role="button" aria-label="View profile of ' + escapedNickname + '">' +
+                            '<div class="modern-like-avatar-wrapper">' +
+                                '<img class="modern-like-avatar" src="' + avatarData.url + '" alt="Avatar of ' + escapedNickname + '" loading="lazy" decoding="async" width="48" height="48">' +
+                                '<span class="modern-status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
                             '</div>' +
-                            '<div class="modern-like-stats">' +
-                                '<span><i class="fa-regular fa-message" aria-hidden="true"></i> ' + formatNumber(user.messages) + ' posts</span>' +
-                                '<span><i class="fa-regular fa-thumbs-up" aria-hidden="true"></i> ' + formatNumber(user.reputation) + ' rep</span>' +
+                            '<div class="modern-like-info" data-user-id="' + user.id + '">' +
+                                '<div class="modern-like-name-row">' +
+                                    '<span class="modern-like-name" data-user-id="' + user.id + '">' + escapedNickname + '</span>' +
+                                    '<span class="modern-role-badge ' + roleInfo.class + '">' + escapeHtml(roleInfo.text) + '</span>' +
+                                '</div>' +
+                                '<div class="modern-like-stats">' +
+                                    '<span><i class="fa-regular fa-message" aria-hidden="true"></i> ' + formatNumber(user.messages) + ' posts</span>' +
+                                    '<span><i class="fa-regular fa-thumbs-up" aria-hidden="true"></i> ' + formatNumber(user.reputation) + ' rep</span>' +
+                                '</div>' +
                             '</div>' +
-                        '</div>' +
-                    '</div>';
+                        '</div>';
+                } else {
+                    itemsHtml += 
+                        '<div class="modern-like-item" data-user-id="' + user.id + '" tabindex="0" role="button" aria-label="View profile of ' + escapedNickname + '">' +
+                            '<div class="modern-like-avatar-wrapper">' +
+                                '<div class="modal-initial-avatar" style="background-color: #' + avatarData.bgColor + ';">' + escapeHtml(avatarData.initial) + '</div>' +
+                                '<span class="modern-status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
+                            '</div>' +
+                            '<div class="modern-like-info" data-user-id="' + user.id + '">' +
+                                '<div class="modern-like-name-row">' +
+                                    '<span class="modern-like-name" data-user-id="' + user.id + '">' + escapedNickname + '</span>' +
+                                    '<span class="modern-role-badge ' + roleInfo.class + '">' + escapeHtml(roleInfo.text) + '</span>' +
+                                '</div>' +
+                                '<div class="modern-like-stats">' +
+                                    '<span><i class="fa-regular fa-message" aria-hidden="true"></i> ' + formatNumber(user.messages) + ' posts</span>' +
+                                    '<span><i class="fa-regular fa-thumbs-up" aria-hidden="true"></i> ' + formatNumber(user.reputation) + ' rep</span>' +
+                                '</div>' +
+                            '</div>' +
+                        '</div>';
+                }
             }
             likesList.innerHTML = itemsHtml;
             countSpan.textContent = sortedUsers.length;
@@ -957,8 +939,15 @@
         var reportsHtml = '';
         for (var i = 0; i < reports.length; i++) {
             var r = reports[i];
-            var localSvgFallback = generateLocalSvgAvatar(r.username, 'notify_' + r.reportId, 48);
-            var optimizedAvatar = r.avatarUrl && isValidAvatar(r.avatarUrl) ? optimizeImageUrl(r.avatarUrl, 48, 48).url : localSvgFallback;
+            
+            // Get avatar data (custom image or initial)
+            var avatarData = getAvatarData(null, r.username, r.reportId);
+            var avatarHtml = '';
+            if (avatarData.type === 'img') {
+                avatarHtml = '<img src="' + escapeHtml(avatarData.url) + '" alt="Avatar" width="48" height="48">';
+            } else {
+                avatarHtml = '<div class="modal-initial-avatar" style="background-color: #' + avatarData.bgColor + ';">' + escapeHtml(avatarData.initial) + '</div>';
+            }
             
             // Convert Italian timestamp to local time, then to relative
             var localDate = italianTimeToLocalDate(r.time);
@@ -968,9 +957,7 @@
             
             reportsHtml += 
                 '<div class="report-item" data-report-id="' + escapeHtml(r.reportId) + '" data-post-url="' + escapeHtml(r.postUrl) + '">' +
-                    '<div class="report-avatar">' +
-                        '<img src="' + escapeHtml(optimizedAvatar) + '" alt="Avatar" width="48" height="48" onerror="this.onerror=null; this.src=\'' + localSvgFallback + '\';">' +
-                    '</div>' +
+                    '<div class="report-avatar">' + avatarHtml + '</div>' +
                     '<div class="report-details">' +
                         '<div class="report-header">' +
                             '<span class="report-username">' + escapeHtml(r.username) + '</span>' +

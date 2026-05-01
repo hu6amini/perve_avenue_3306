@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.5
+// @version      7.6
 // @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – relies solely on ForumCoreObserver.
 // @author       You
 // @match        *://*.forumfree.it/*
@@ -115,14 +115,14 @@ var ModalsModule = (function() {
         if (absDiff < 3600) return rtf.format(Math.floor(diff / 60000), 'minute');
         if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600000), 'hour');
         if (absDiff < 2592000) {
-            var days = Math.floor(absDiff / 86400);
+            var days = Math.abs(Math.floor(diff / 86400000));
             return rtf.format(-days, 'day');
         }
         if (absDiff < 31536000) {
-            var months = Math.floor(absDiff / 2592000);
+            var months = Math.abs(Math.floor(diff / 2592000000));
             return rtf.format(-months, 'month');
         }
-        var years = Math.floor(absDiff / 31536000);
+        var years = Math.abs(Math.floor(diff / 31536000000));
         return rtf.format(-years, 'year');
     }
 
@@ -1169,19 +1169,42 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // LIKES MODAL - with a small delay to allow user list population after display change
+        // LIKES MODAL - wait for user list to be populated
         globalThis.forumObserver.register({
             id: 'modern-likes-modal',
             selector: '.popup.pop_points, #overlay.pop_points',
             priority: 'high',
             callback: function(node) {
                 if (node && node.style && node.style.display === 'block') {
-                    setTimeout(function() {
+                    // Check if user list already exists
+                    var existingUsers = node.querySelectorAll('.users li');
+                    if (existingUsers.length > 0) {
                         var userIds = extractUserIdsFromLegacyModal(node);
                         if (userIds.length > 0 && !currentModal) {
                             showModernModal(userIds, node, getTriggerElement());
                         }
-                    }, 50);
+                        return;
+                    }
+                    // Otherwise, watch for it to be added
+                    var observer = new MutationObserver(function(mutations) {
+                        var users = node.querySelectorAll('.users li');
+                        if (users.length > 0) {
+                            observer.disconnect();
+                            var userIds = extractUserIdsFromLegacyModal(node);
+                            if (userIds.length > 0 && !currentModal) {
+                                showModernModal(userIds, node, getTriggerElement());
+                            }
+                        }
+                    });
+                    observer.observe(node, { childList: true, subtree: true });
+                    // Timeout fallback after 2 seconds
+                    setTimeout(function() {
+                        observer.disconnect();
+                        var userIds = extractUserIdsFromLegacyModal(node);
+                        if (userIds.length > 0 && !currentModal) {
+                            showModernModal(userIds, node, getTriggerElement());
+                        }
+                    }, 2000);
                 }
             }
         });

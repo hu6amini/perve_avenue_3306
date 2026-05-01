@@ -2,7 +2,7 @@
 // Forum Modernizer - Posts Module (API-enhanced, all original functionality preserved)
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
 // ADDED: Relative timestamps for post time and edit info
-// CHANGED: Local SVG avatars with Quicksand/Bree Serif fonts (replaced Dicebear)
+// CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -20,7 +20,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
         QUALITY: 90
     };
 
-    // Avatar colour palette (for local SVG fallback)
+    // Avatar colour palette (for initial fallback)
     var AVATAR_COLORS = [
         '059669', '10B981', '34D399', '6EE7B7', 'A7F3D0',
         '0D9488', '14B8A6', '2DD4BF', '5EEAD4', '99F6E4',
@@ -122,17 +122,15 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // AVATAR OPTIMISATION (weserv, 60×60)
+    // AVATAR HANDLING (custom image + fallback to initial letter)
     // ============================================================================
-function isValidAvatarUrl(url) {
-    if (!url || typeof url !== 'string') return false;
-    var trimmed = url.trim();
-    // Must start with http://, https://, or //
-    if (!/^(https?:)?\/\//i.test(trimmed)) return false;
-    // Reject obviously broken values like "http" (no colon/slashes after)
-    if (trimmed === 'http' || trimmed === 'https' || trimmed === '//') return false;
-    return true;
-}
+    function isValidAvatarUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        var trimmed = url.trim();
+        if (!/^(https?:)?\/\//i.test(trimmed)) return false;
+        if (trimmed === 'http' || trimmed === 'https' || trimmed === '//') return false;
+        return true;
+    }
 
     function getColorFromNickname(nickname, userId) {
         var hash = 0;
@@ -145,76 +143,47 @@ function isValidAvatarUrl(url) {
         return AVATAR_COLORS[colorIndex];
     }
 
-    // Helper to escape text for SVG (prevents injection)
-    function escapeSvgText(str) {
-        return str.replace(/[<>&]/g, function(m) {
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            if (m === '&') return '&amp;';
-            return m;
-        });
+    function optimizeImageUrl(url, width, height) {
+        if (!isValidAvatarUrl(url)) return null;
+        var lowerUrl = url.toLowerCase();
+        if (lowerUrl.indexOf('weserv.nl') !== -1 || lowerUrl.indexOf('data:') === 0) {
+            return url;
+        }
+        var targetWidth = width || CONFIG.AVATAR_SIZE;
+        var targetHeight = height || CONFIG.AVATAR_SIZE;
+        var isGif = (lowerUrl.indexOf('.gif') !== -1 || /\.gif($|\?|#)/i.test(lowerUrl));
+        var outputFormat = 'webp';
+        var quality = CONFIG.QUALITY;
+        var encodedUrl = encodeURIComponent(url);
+        var optimizedUrl = CONFIG.WESERV_CDN + '?url=' + encodedUrl +
+            '&output=' + outputFormat +
+            '&maxage=' + CONFIG.CACHE +
+            '&q=' + quality +
+            '&w=' + targetWidth +
+            '&h=' + targetHeight +
+            '&fit=cover' +
+            '&a=attention' +
+            '&il';
+        if (isGif) optimizedUrl += '&n=-1&lossless=true';
+        return optimizedUrl;
     }
 
-    // NEW: Generate local SVG avatar using Quicksand & Bree Serif fonts
-    function generateLocalSvgAvatar(username, userId) {
-        var displayName = username || 'User';
-        var initial = displayName.charAt(0).toUpperCase();
+    // Returns object describing avatar: either type: 'img' with url, or type: 'initial' with initial and bgColor
+    function getUserAvatarData(user, username, userId) {
+        if (user && user.avatar && isValidAvatarUrl(user.avatar)) {
+            var avatarUrl = user.avatar;
+            if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
+            if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
+                avatarUrl = avatarUrl.replace('http://', 'https://');
+            var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
+            if (optimized) return { type: 'img', url: optimized };
+        }
+        // Fallback to initial letter
+        var initial = username ? username.charAt(0).toUpperCase() : '?';
         if (!initial.match(/[A-Z0-9]/i)) initial = '?';
         var bgColor = getColorFromNickname(username, userId);
-        var size = CONFIG.AVATAR_SIZE;
-        var radius = size / 2;
-        var fontSize = Math.floor(size * 0.618); // 61.8% of total size (Phi ratio)
-        
-        var svgString = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-            '<rect width="100%" height="100%" fill="#' + bgColor + '" rx="' + radius + '" ry="' + radius + '"/>' +
-            '<text x="50%" y="50%" font-family="Quicksand, Bree Serif, sans-serif" font-size="' + fontSize + '" font-weight="600" fill="white" text-anchor="middle" dominant-baseline="central">' + escapeSvgText(initial) + '</text>' +
-            '</svg>';
-        
-        return 'data:image/svg+xml,' + encodeURIComponent(svgString);
+        return { type: 'initial', initial: initial, bgColor: bgColor };
     }
-
-function optimizeImageUrl(url, width, height) {
-    if (!isValidAvatarUrl(url)) return null;
-    
-    var lowerUrl = url.toLowerCase();
-    // Skip optimization for already-optimized or data URLs
-    if (lowerUrl.indexOf('weserv.nl') !== -1 ||
-        lowerUrl.indexOf('data:') === 0) {
-        return url;
-    }
-    
-    var targetWidth = width || CONFIG.AVATAR_SIZE;
-    var targetHeight = height || CONFIG.AVATAR_SIZE;
-    var isGif = (lowerUrl.indexOf('.gif') !== -1 || /\.gif($|\?|#)/i.test(lowerUrl));
-    var outputFormat = 'webp';
-    var quality = CONFIG.QUALITY;
-    var encodedUrl = encodeURIComponent(url);
-    var optimizedUrl = CONFIG.WESERV_CDN + '?url=' + encodedUrl +
-        '&output=' + outputFormat +
-        '&maxage=' + CONFIG.CACHE +
-        '&q=' + quality +
-        '&w=' + targetWidth +
-        '&h=' + targetHeight +
-        '&fit=cover' +
-        '&a=attention' +
-        '&il';
-    if (isGif) optimizedUrl += '&n=-1&lossless=true';
-    return optimizedUrl;
-}
-
-function getUserAvatarUrl(user, username, userId) {
-    // Try to use the user's custom avatar if it exists and is valid
-    if (user && user.avatar && isValidAvatarUrl(user.avatar)) {
-        var avatarUrl = user.avatar;
-        if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
-        if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
-            avatarUrl = avatarUrl.replace('http://', 'https://');
-        var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
-        if (optimized) return optimized;
-    }
-    // Fallback to local SVG (Quicksand / Bree Serif)
-    return generateLocalSvgAvatar(username, userId);
-}
 
     // ============================================================================
     // HELPER FUNCTIONS
@@ -317,29 +286,24 @@ function getUserAvatarUrl(user, username, userId) {
         if (!contentTable) return '';
         var contentClone = contentTable.cloneNode(true);
         
-        // Remove <br> tags that are directly before .edit elements (to avoid extra line breaks)
+        // Remove <br> tags directly before .edit elements
         var editSpans = contentClone.querySelectorAll('.edit');
         for (var i = 0; i < editSpans.length; i++) {
             var edit = editSpans[i];
             var prev = edit.previousSibling;
-            // Walk backwards and remove any element nodes that are <br>
             while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') {
                 var toRemove = prev;
                 prev = prev.previousSibling;
                 toRemove.remove();
             }
-            // The .edit itself will be removed in the next step (signatures/edits removal)
         }
         
-        // Remove signatures and edit infos
         var signatures = contentClone.querySelectorAll('.signature, .edit');
         signatures.forEach(function(el) { if (el && el.remove) el.remove(); });
         
-        // Remove borders
         var borders = contentClone.querySelectorAll('.bottomborder');
         borders.forEach(function(el) { if (el && el.remove) el.remove(); });
         
-        // Clean up <br> that are next to borders (original behaviour)
         var breaks = contentClone.querySelectorAll('br');
         breaks.forEach(function(br) {
             var prev = br.previousElementSibling;
@@ -364,17 +328,14 @@ function getUserAvatarUrl(user, username, userId) {
         return sigClone.innerHTML;
     }
 
-    // NEW: getEditInfo returns object with editor, relative time, raw date, or null
     function getEditInfo($post) {
         var editSpan = $post.querySelector('.edit');
         if (!editSpan) return null;
         var fullText = editSpan.textContent.trim();
-        // Split by " - " – the last part is the date
         var parts = fullText.split(' - ');
         if (parts.length < 2) return null;
-        var editorPart = parts.slice(0, -1).join(' - '); // e.g., "Edited by -JuNioR-"
+        var editorPart = parts.slice(0, -1).join(' - ');
         var dateStr = parts[parts.length - 1].trim();
-        // Parse the date string (same format as post `.when` title)
         var date = parseDateFromTitle(dateStr);
         if (!date || isNaN(date.getTime())) return null;
         var relative = getRelativeTimeString(date);
@@ -705,7 +666,7 @@ function getUserAvatarUrl(user, username, userId) {
     }
 
     // ============================================================================
-    // GENERATE MODERN CARD (updated: local SVG avatar, no onerror needed)
+    // GENERATE MODERN CARD (local avatar uses real DOM element)
     // ============================================================================
     function formatNumber(num) {
         if (!num && num !== 0) return '0';
@@ -720,11 +681,21 @@ function getUserAvatarUrl(user, username, userId) {
         var isOnline = (user && user.status === 'online') || data.isOnline || false;
         var statusClass = isOnline ? 'online' : 'offline';
         var statusText = isOnline ? 'Online' : 'Offline';
-        var avatarUrl = getUserAvatarUrl(user, username, userId);
-        var avatarHtml = '<div class="post-avatar-wrapper">' +
-            '<img class="avatar-circle" src="' + avatarUrl + '" alt="Avatar of ' + Utils.escapeHtml(username) + '" width="' + CONFIG.AVATAR_SIZE + '" height="' + CONFIG.AVATAR_SIZE + '" loading="lazy">' +
-            '<span class="status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
-            '</div>';
+        
+        var avatarData = getUserAvatarData(user, username, userId);
+        var avatarHtml = '';
+        if (avatarData.type === 'img') {
+            avatarHtml = '<div class="post-avatar-wrapper">' +
+                '<img class="avatar-circle" src="' + avatarData.url + '" alt="Avatar of ' + Utils.escapeHtml(username) + '" width="' + CONFIG.AVATAR_SIZE + '" height="' + CONFIG.AVATAR_SIZE + '" loading="lazy">' +
+                '<span class="status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
+                '</div>';
+        } else {
+            avatarHtml = '<div class="post-avatar-wrapper">' +
+                '<div class="initial-avatar" style="background-color: #' + avatarData.bgColor + ';" data-initial="' + Utils.escapeHtml(avatarData.initial) + '">' + Utils.escapeHtml(avatarData.initial) + '</div>' +
+                '<span class="status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
+                '</div>';
+        }
+        
         var groupName = (user && user.group && user.group.name) ? user.group.name : (data.groupText || 'Member');
         var roleClass = 'role-badge';
         if (groupName.toLowerCase() === 'administrator') roleClass += ' admin';
@@ -751,7 +722,6 @@ function getUserAvatarUrl(user, username, userId) {
             reactions: data.reactions
         });
 
-        // Edit info with relative time
         var editHtml = '';
         if (data.editInfo && data.editInfo.relative) {
             var editDate = data.editInfo.rawDate;
@@ -769,7 +739,6 @@ function getUserAvatarUrl(user, username, userId) {
         var signatureHtml = data.signatureHtml ? '<div class="post-signature">' + data.signatureHtml + '</div>' : '';
         var ipHtml = data.ipAddress ? '<div class="post-ip">IP: ' + data.ipAddress + '</div>' : '';
 
-        // Post time (no link)
         var postTimeHtml = '<div class="post-time">' +
             '<time datetime="' + (data.postDate ? data.postDate.toISOString() : '') + '">' +
             Utils.escapeHtml(data.relativeTime) +
@@ -1067,7 +1036,6 @@ function getUserAvatarUrl(user, username, userId) {
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
 
-            // Post timestamp and permalink
             var whenSpan = $post.querySelector('.when');
             var postPermalink = null;
             var postDate = null;
@@ -1081,7 +1049,6 @@ function getUserAvatarUrl(user, username, userId) {
             }
             var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
 
-            // Edit info
             var editInfo = getEditInfo($post);
 
             postsData.push({
@@ -1130,7 +1097,7 @@ function getUserAvatarUrl(user, username, userId) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + local SVG avatars)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars)');
     }
 
     // ============================================================================
@@ -1138,7 +1105,7 @@ function getUserAvatarUrl(user, username, userId) {
     // ============================================================================
     function initialize() {
         if (isInitialized) { console.log('[PostsModule] Already initialized'); return; }
-        console.log('[PostsModule] Initializing API-enhanced version with local SVG avatars...');
+        console.log('[PostsModule] Initializing API-enhanced version with initial avatars...');
         convertAllPosts().catch(err => console.error('[PostsModule] Init error', err));
         isInitialized = true;
         if (typeof globalThis.forumObserver !== 'undefined' && globalThis.forumObserver) {

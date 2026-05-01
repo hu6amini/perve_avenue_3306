@@ -80,16 +80,16 @@ const SCRIPT_URLS = [
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@be3f0b0/core/event-bus.js",
     
     // Forum Core Observer (must be before modules that use it)
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@8909aa9/forum_core_observer.js",
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@de3f849/forum_core_observer.js",
     
     // Modules (each will wait for forum-observer-ready internally)
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@.../core/media-dimensions.js",   // replace with actual URL
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@.../core/twemoji.js",            // replace with actual URL
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@54f32c0/core/media-dimensions.js",
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@5cca0ae/core/twemoji.js",
     "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@4fbf14e/modules/posts.js",
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@e7bda90/modules/modals.js",
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@691117f/modules/modals.js",
     
     // Main enhancer (last)
-    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@7792393/core/forum-enhancer.js"
+    "https://cdn.jsdelivr.net/gh/hu6amini/perve_avenue@7f0ee7b/core/forum-enhancer.js"
 ];
 
 async function loadAllScripts() {

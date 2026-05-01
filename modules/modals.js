@@ -66,6 +66,7 @@ var ModalsModule = (function() {
 
     var userProfileLinks = new Map();
 
+    // ========== HELPER: GET COLOR FROM NICKNAME ==========
     function getColorFromNickname(nickname, userId) {
         var hash = 0;
         var str = nickname || userId || 'user';
@@ -77,6 +78,7 @@ var ModalsModule = (function() {
         return AVATAR_COLORS[colorIndex];
     }
 
+    // ========== RELATIVE TIME HELPERS (with Italian timezone conversion) ==========
     function parseDateFromTitle(title) {
         if (!title) return null;
         title = title.replace(/(\d{1,2}):(\d{2})\s*(AM|PM)?:(\d+)/i, '$1:$2 $3');
@@ -159,6 +161,7 @@ var ModalsModule = (function() {
         return new Date(realUtcMs);
     }
 
+    // ========== AVATAR HANDLING ==========
     function isValidAvatarUrl(url) {
         if (!url || typeof url !== 'string') return false;
         var trimmed = url.trim();
@@ -315,6 +318,7 @@ var ModalsModule = (function() {
         return hours + ':' + minutes;
     }
 
+    // ========== SCROLLBAR UTILITIES ==========
     function getScrollbarWidth() {
         var scrollDiv = document.createElement('div');
         scrollDiv.className = 'modal-scrollbar-measure';
@@ -337,6 +341,7 @@ var ModalsModule = (function() {
         document.body.classList.remove('modal-open');
     }
 
+    // ========== FOCUS TRAP GENERIC ==========
     function getFocusableElements(modalElement) {
         var selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
         var elements = modalElement.querySelectorAll(selectors);
@@ -364,6 +369,7 @@ var ModalsModule = (function() {
         }
     }
 
+    // ========== LIKES MODAL ==========
     function setLikesFocusTrap(modalElement) {
         focusableElements = getFocusableElements(modalElement);
         if (focusableElements.length) {
@@ -583,6 +589,7 @@ var ModalsModule = (function() {
         processingModal = false;
     }
 
+    // ========== USER REPORT MODAL ==========
     function autoGrowTextarea(textarea) {
         if (!textarea) return;
         textarea.style.height = 'auto';
@@ -809,6 +816,7 @@ var ModalsModule = (function() {
         });
     }
 
+    // ========== ADMIN REPORT NOTIFY MODAL ==========
     function closeModernReportNotifyModal(legacyModal, skipOriginalClose) {
         if (currentReportNotifyModal) {
             unlockBodyScroll();
@@ -1161,18 +1169,16 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // ========== LIKES MODAL (fixed with delay and computed style) ==========
+        // Likes modal – with a small delay to allow style.display to be set
         globalThis.forumObserver.register({
             id: 'modern-likes-modal',
             selector: '.popup.pop_points, #overlay.pop_points',
-            priority: 'critical',
+            priority: 'high',
             callback: function(node) {
                 setTimeout(function() {
-                    var isVisible = (node.style && node.style.display === 'block') ||
-                                    (window.getComputedStyle(node).display === 'block');
-                    if (isVisible && !currentModal && !processingModal) {
+                    if (node && node.isConnected && node.style && node.style.display === 'block') {
                         var userIds = extractUserIdsFromLegacyModal(node);
-                        if (userIds.length > 0) {
+                        if (userIds.length > 0 && !currentModal) {
                             showModernModal(userIds, node, getTriggerElement());
                         }
                     }
@@ -1180,33 +1186,36 @@ var ModalsModule = (function() {
             }
         });
 
-        // ========== REPORT MODAL ==========
         globalThis.forumObserver.register({
             id: 'modern-report-modal',
             selector: '.ff-modal.modal.report-modal, .report-modal',
             priority: 'high',
             callback: function(node) {
-                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportModal) {
-                    showModernReportModal(node, getTriggerElement());
-                }
+                setTimeout(function() {
+                    if (node && node.isConnected && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportModal) {
+                        showModernReportModal(node, getTriggerElement());
+                    }
+                }, 10);
             }
         });
 
-        // ========== REPORT NOTIFY MODAL ==========
         globalThis.forumObserver.register({
             id: 'modern-report-notify-modal',
             selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
             priority: 'high',
             callback: function(node) {
-                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportNotifyModal) {
-                    showModernReportNotifyModal(node, getTriggerElement());
-                }
+                setTimeout(function() {
+                    if (node && node.isConnected && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportNotifyModal) {
+                        showModernReportNotifyModal(node, getTriggerElement());
+                    }
+                }, 10);
             }
         });
 
         console.log('[Modern Modals] Registered with ForumCoreObserver');
     }
 
+    // Module export
     var initialized = false;
     async function initialize() {
         if (initialized) return;

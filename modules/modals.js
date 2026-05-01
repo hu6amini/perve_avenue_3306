@@ -2,7 +2,7 @@
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
 // @version      7.5
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – relies solely on ForumCoreObserver with robust detection.
+// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – relies solely on ForumCoreObserver.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -66,7 +66,6 @@ var ModalsModule = (function() {
 
     var userProfileLinks = new Map();
 
-    // ========== HELPER: GET COLOR FROM NICKNAME ==========
     function getColorFromNickname(nickname, userId) {
         var hash = 0;
         var str = nickname || userId || 'user';
@@ -78,7 +77,6 @@ var ModalsModule = (function() {
         return AVATAR_COLORS[colorIndex];
     }
 
-    // ========== RELATIVE TIME HELPERS (with Italian timezone conversion) ==========
     function parseDateFromTitle(title) {
         if (!title) return null;
         title = title.replace(/(\d{1,2}):(\d{2})\s*(AM|PM)?:(\d+)/i, '$1:$2 $3');
@@ -161,7 +159,6 @@ var ModalsModule = (function() {
         return new Date(realUtcMs);
     }
 
-    // ========== AVATAR HANDLING ==========
     function isValidAvatarUrl(url) {
         if (!url || typeof url !== 'string') return false;
         var trimmed = url.trim();
@@ -318,7 +315,6 @@ var ModalsModule = (function() {
         return hours + ':' + minutes;
     }
 
-    // ========== SCROLLBAR UTILITIES ==========
     function getScrollbarWidth() {
         var scrollDiv = document.createElement('div');
         scrollDiv.className = 'modal-scrollbar-measure';
@@ -341,7 +337,6 @@ var ModalsModule = (function() {
         document.body.classList.remove('modal-open');
     }
 
-    // ========== FOCUS TRAP GENERIC ==========
     function getFocusableElements(modalElement) {
         var selectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
         var elements = modalElement.querySelectorAll(selectors);
@@ -369,7 +364,6 @@ var ModalsModule = (function() {
         }
     }
 
-    // ========== LIKES MODAL ==========
     function setLikesFocusTrap(modalElement) {
         focusableElements = getFocusableElements(modalElement);
         if (focusableElements.length) {
@@ -589,7 +583,6 @@ var ModalsModule = (function() {
         processingModal = false;
     }
 
-    // ========== USER REPORT MODAL ==========
     function autoGrowTextarea(textarea) {
         if (!textarea) return;
         textarea.style.height = 'auto';
@@ -816,7 +809,6 @@ var ModalsModule = (function() {
         });
     }
 
-    // ========== ADMIN REPORT NOTIFY MODAL ==========
     function closeModernReportNotifyModal(legacyModal, skipOriginalClose) {
         if (currentReportNotifyModal) {
             unlockBodyScroll();
@@ -1135,22 +1127,6 @@ var ModalsModule = (function() {
         document.addEventListener('keydown', escHandler);
     }
 
-    // ========== HELPER: CHECK IF MODAL IS VISIBLE ==========
-    function isModalVisible(node) {
-        if (!node) return false;
-        // First check computed style
-        var style = window.getComputedStyle(node);
-        if (style.display !== 'none' && style.visibility !== 'hidden') {
-            return true;
-        }
-        // Also check if it has a style attribute with display block/inline-block
-        var inlineStyle = node.getAttribute('style');
-        if (inlineStyle && (inlineStyle.indexOf('display: block') !== -1 || inlineStyle.indexOf('display:inline-block') !== -1)) {
-            return true;
-        }
-        return false;
-    }
-
     // ========== INITIALIZATION (only via ForumCoreObserver) ==========
     async function waitForForumObserver() {
         if (globalThis.forumObserver) return true;
@@ -1166,37 +1142,6 @@ var ModalsModule = (function() {
                 resolve(false);
             }, 5000);
         });
-    }
-
-    // Manual scan for existing modals (catches modals added before observer or during pause)
-    function scanExistingModals() {
-        // Likes modals
-        var existingLikeModals = document.querySelectorAll('.popup.pop_points, #overlay.pop_points');
-        for (var i = 0; i < existingLikeModals.length; i++) {
-            var modal = existingLikeModals[i];
-            if (isModalVisible(modal) && !currentModal && !processingModal) {
-                var userIds = extractUserIdsFromLegacyModal(modal);
-                if (userIds.length > 0) {
-                    showModernModal(userIds, modal, document.activeElement);
-                }
-            }
-        }
-        // Report modals
-        var existingReportModals = document.querySelectorAll('.ff-modal.modal.report-modal, .report-modal');
-        for (var i = 0; i < existingReportModals.length; i++) {
-            var modal = existingReportModals[i];
-            if ((modal.style.display === 'inline-block' || modal.style.display === 'block') && !currentReportModal && !reportProcessing) {
-                showModernReportModal(modal, document.activeElement);
-            }
-        }
-        // Notify modals
-        var existingNotifyModals = document.querySelectorAll('.ff-modal.modal.report-modal-notify, .report-modal-notify');
-        for (var i = 0; i < existingNotifyModals.length; i++) {
-            var modal = existingNotifyModals[i];
-            if ((modal.style.display === 'inline-block' || modal.style.display === 'block') && !currentReportNotifyModal && !reportNotifyProcessing) {
-                showModernReportNotifyModal(modal, document.activeElement);
-            }
-        }
     }
 
     async function init() {
@@ -1216,44 +1161,26 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // Callback with retry for style visibility
-        function createLikesCallback(node) {
-            // If already visible, process immediately
-            if (isModalVisible(node)) {
-                var userIds = extractUserIdsFromLegacyModal(node);
-                if (userIds.length > 0 && !currentModal) {
-                    showModernModal(userIds, node, getTriggerElement());
-                }
-            } else {
-                // Use requestAnimationFrame to wait for style to apply
-                requestAnimationFrame(function() {
-                    if (isModalVisible(node)) {
-                        var userIds = extractUserIdsFromLegacyModal(node);
-                        if (userIds.length > 0 && !currentModal) {
-                            showModernModal(userIds, node, getTriggerElement());
-                        }
-                    } else {
-                        // Fallback: setTimeout a bit longer
-                        setTimeout(function() {
-                            if (isModalVisible(node)) {
-                                var userIds = extractUserIdsFromLegacyModal(node);
-                                if (userIds.length > 0 && !currentModal) {
-                                    showModernModal(userIds, node, getTriggerElement());
-                                }
-                            }
-                        }, 50);
-                    }
-                });
-            }
-        }
-
+        // ========== LIKES MODAL (fixed with delay and computed style) ==========
         globalThis.forumObserver.register({
             id: 'modern-likes-modal',
             selector: '.popup.pop_points, #overlay.pop_points',
-            priority: 'high',
-            callback: createLikesCallback
+            priority: 'critical',
+            callback: function(node) {
+                setTimeout(function() {
+                    var isVisible = (node.style && node.style.display === 'block') ||
+                                    (window.getComputedStyle(node).display === 'block');
+                    if (isVisible && !currentModal && !processingModal) {
+                        var userIds = extractUserIdsFromLegacyModal(node);
+                        if (userIds.length > 0) {
+                            showModernModal(userIds, node, getTriggerElement());
+                        }
+                    }
+                }, 10);
+            }
         });
-        
+
+        // ========== REPORT MODAL ==========
         globalThis.forumObserver.register({
             id: 'modern-report-modal',
             selector: '.ff-modal.modal.report-modal, .report-modal',
@@ -1264,7 +1191,8 @@ var ModalsModule = (function() {
                 }
             }
         });
-        
+
+        // ========== REPORT NOTIFY MODAL ==========
         globalThis.forumObserver.register({
             id: 'modern-report-notify-modal',
             selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
@@ -1275,17 +1203,10 @@ var ModalsModule = (function() {
                 }
             }
         });
-        
+
         console.log('[Modern Modals] Registered with ForumCoreObserver');
-        
-        // Initial scan for modals that already exist (e.g., if observer was paused when they appeared)
-        scanExistingModals();
-        
-        // Also re-scan after a short delay to catch any late additions
-        setTimeout(scanExistingModals, 500);
     }
 
-    // Module export
     var initialized = false;
     async function initialize() {
         if (initialized) return;

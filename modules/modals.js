@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.6
-// @description  Replaces old likes popup, report modal, and admin report-notify modal with modern, accessible modals – relies solely on ForumCoreObserver.
+// @version      7.5
+// @description  Replaces old likes popup, report modal, and admin report-notify modal – dedicated observer for likes popup style.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -115,14 +115,14 @@ var ModalsModule = (function() {
         if (absDiff < 3600) return rtf.format(Math.floor(diff / 60000), 'minute');
         if (absDiff < 86400) return rtf.format(Math.floor(diff / 3600000), 'hour');
         if (absDiff < 2592000) {
-            var days = Math.abs(Math.floor(diff / 86400000));
+            var days = Math.floor(absDiff / 86400);
             return rtf.format(-days, 'day');
         }
         if (absDiff < 31536000) {
-            var months = Math.abs(Math.floor(diff / 2592000000));
+            var months = Math.floor(absDiff / 2592000);
             return rtf.format(-months, 'month');
         }
-        var years = Math.abs(Math.floor(diff / 31536000000));
+        var years = Math.floor(absDiff / 31536000);
         return rtf.format(-years, 'year');
     }
 
@@ -1135,7 +1135,7 @@ var ModalsModule = (function() {
         document.addEventListener('keydown', escHandler);
     }
 
-    // ========== INITIALIZATION (only via ForumCoreObserver) ==========
+    // ========== INITIALIZATION ==========
     async function waitForForumObserver() {
         if (globalThis.forumObserver) return true;
         return new Promise((resolve) => {
@@ -1169,46 +1169,43 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        // LIKES MODAL - wait for user list to be populated
-        globalThis.forumObserver.register({
-            id: 'modern-likes-modal',
-            selector: '.popup.pop_points, #overlay.pop_points',
-            priority: 'high',
-            callback: function(node) {
-                if (node && node.style && node.style.display === 'block') {
-                    // Check if user list already exists
-                    var existingUsers = node.querySelectorAll('.users li');
-                    if (existingUsers.length > 0) {
-                        var userIds = extractUserIdsFromLegacyModal(node);
-                        if (userIds.length > 0 && !currentModal) {
-                            showModernModal(userIds, node, getTriggerElement());
-                        }
-                        return;
-                    }
-                    // Otherwise, watch for it to be added
-                    var observer = new MutationObserver(function(mutations) {
-                        var users = node.querySelectorAll('.users li');
-                        if (users.length > 0) {
-                            observer.disconnect();
-                            var userIds = extractUserIdsFromLegacyModal(node);
-                            if (userIds.length > 0 && !currentModal) {
-                                showModernModal(userIds, node, getTriggerElement());
+        // --- Likes popup: use a dedicated MutationObserver because ForumCoreObserver does not re-process style changes of already seen elements ---
+        var likesObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    var overlay = mutation.target;
+                    if (overlay && overlay.classList && (overlay.classList.contains('pop_points') || overlay.id === 'overlay')) {
+                        var display = overlay.style.display;
+                        if (display === 'block' && !processingModal && !currentModal) {
+                            var userIds = extractUserIdsFromLegacyModal(overlay);
+                            if (userIds.length > 0) {
+                                showModernModal(userIds, overlay, getTriggerElement());
                             }
                         }
-                    });
-                    observer.observe(node, { childList: true, subtree: true });
-                    // Timeout fallback after 2 seconds
-                    setTimeout(function() {
-                        observer.disconnect();
-                        var userIds = extractUserIdsFromLegacyModal(node);
-                        if (userIds.length > 0 && !currentModal) {
-                            showModernModal(userIds, node, getTriggerElement());
-                        }
-                    }, 2000);
+                    }
                 }
-            }
+            });
         });
 
+        var overlayElement = document.querySelector('.popup.pop_points, #overlay.pop_points');
+        if (overlayElement) {
+            likesObserver.observe(overlayElement, { attributes: true, attributeFilter: ['style'] });
+        } else {
+            // If the element doesn't exist yet, watch for its addition
+            var bodyObserver = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    mutation.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1 && node.matches && node.matches('.popup.pop_points, #overlay.pop_points')) {
+                            likesObserver.observe(node, { attributes: true, attributeFilter: ['style'] });
+                            bodyObserver.disconnect();
+                        }
+                    });
+                });
+            });
+            bodyObserver.observe(document.body, { childList: true, subtree: true });
+        }
+
+        // Report and report-notify modals can still use ForumCoreObserver because they are dynamically created and removed
         globalThis.forumObserver.register({
             id: 'modern-report-modal',
             selector: '.ff-modal.modal.report-modal, .report-modal',
@@ -1219,7 +1216,6 @@ var ModalsModule = (function() {
                 }
             }
         });
-
         globalThis.forumObserver.register({
             id: 'modern-report-notify-modal',
             selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
@@ -1230,7 +1226,7 @@ var ModalsModule = (function() {
                 }
             }
         });
-        console.log('[Modern Modals] Registered with ForumCoreObserver');
+        console.log('[Modern Modals] Registered with ForumCoreObserver (likes popup uses dedicated observer)');
     }
 
     // Module export

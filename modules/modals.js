@@ -1169,39 +1169,54 @@ var ModalsModule = (function() {
 
         function getTriggerElement() { return document.activeElement; }
 
-        globalThis.forumObserver.register({
-            id: 'modern-likes-modal',
-            selector: '.popup.pop_points, #overlay.pop_points',
-            priority: 'high',
-            callback: function(node) {
-                if (node && node.style && node.style.display === 'block') {
-                    var userIds = extractUserIdsFromLegacyModal(node);
-                    if (userIds.length > 0 && !currentModal) {
-                        showModernModal(userIds, node, getTriggerElement());
-                    }
-                }
+globalThis.forumObserver.register({
+    id: 'modern-likes-modal',
+    selector: '.popup.pop_points, #overlay.pop_points',
+    priority: 'high',
+    callback: function(node) {
+        // Ensure we have the actual modal element
+        var modalEl = node;
+        if (!modalEl.matches('.popup.pop_points, #overlay.pop_points')) {
+            modalEl = modalEl.querySelector('.popup.pop_points, #overlay.pop_points');
+        }
+        if (modalEl && modalEl.style && modalEl.style.display === 'block') {
+            var userIds = extractUserIdsFromLegacyModal(modalEl);
+            if (userIds.length > 0 && !currentModal) {
+                showModernModal(userIds, modalEl, getTriggerElement());
             }
-        });
-        globalThis.forumObserver.register({
-            id: 'modern-report-modal',
-            selector: '.ff-modal.modal.report-modal, .report-modal',
-            priority: 'high',
-            callback: function(node) {
-                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportModal) {
-                    showModernReportModal(node, getTriggerElement());
-                }
-            }
-        });
-        globalThis.forumObserver.register({
-            id: 'modern-report-notify-modal',
-            selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
-            priority: 'high',
-            callback: function(node) {
-                if (node && (node.style.display === 'inline-block' || node.style.display === 'block') && !currentReportNotifyModal) {
-                    showModernReportNotifyModal(node, getTriggerElement());
-                }
-            }
-        });
+        }
+    }
+});
+
+globalThis.forumObserver.register({
+    id: 'modern-report-modal',
+    selector: '.ff-modal.modal.report-modal, .report-modal',
+    priority: 'high',
+    callback: function(node) {
+        var modalEl = node;
+        if (!modalEl.matches('.ff-modal.modal.report-modal, .report-modal')) {
+            modalEl = modalEl.querySelector('.ff-modal.modal.report-modal, .report-modal');
+        }
+        if (modalEl && (modalEl.style.display === 'inline-block' || modalEl.style.display === 'block') && !currentReportModal) {
+            showModernReportModal(modalEl, getTriggerElement());
+        }
+    }
+});
+
+globalThis.forumObserver.register({
+    id: 'modern-report-notify-modal',
+    selector: '.ff-modal.modal.report-modal-notify, .report-modal-notify',
+    priority: 'high',
+    callback: function(node) {
+        var modalEl = node;
+        if (!modalEl.matches('.ff-modal.modal.report-modal-notify, .report-modal-notify')) {
+            modalEl = modalEl.querySelector('.ff-modal.modal.report-modal-notify, .report-modal-notify');
+        }
+        if (modalEl && (modalEl.style.display === 'inline-block' || modalEl.style.display === 'block') && !currentReportNotifyModal) {
+            showModernReportNotifyModal(modalEl, getTriggerElement());
+        }
+    }
+});
         console.log('[Modern Modals] Registered with ForumCoreObserver');
     }
 

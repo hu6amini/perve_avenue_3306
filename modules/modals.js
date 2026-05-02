@@ -530,7 +530,9 @@ var ModalsModule = (function() {
                 
                 // Compute group class from the roleInfo (or directly from user.group)
                 var groupRaw = (user.group && user.group.name) ? user.group.name : roleInfo.text;
-                var groupClass = 'group-' + sanitizeGroupName(groupRaw);
+// Use roleInfo.groupNameForClass if available (e.g., 'founder' instead of 'administrator')
+var groupNameForClass = roleInfo.groupNameForClass;
+var groupClass = 'group-' + sanitizeGroupName(groupNameForClass || groupRaw);
 
                 if (avatarData.type === 'img') {
                     itemsHtml += 

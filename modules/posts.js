@@ -707,12 +707,27 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 '</div>';
         }
         
-        var groupName = (user && user.group && user.group.name) ? user.group.name : (data.groupText || 'Member');
-        var roleClass = 'role-badge';
-        if (groupName.toLowerCase() === 'administrator') roleClass += ' admin';
-        else if (groupName.toLowerCase() === 'moderator') roleClass += ' moderator';
-        else if (groupName.toLowerCase() === 'developer') roleClass += ' developer';
-        else roleClass += ' member';
+var groupName = (user && user.group && user.group.name) ? user.group.name : (data.groupText || 'Member');
+var roleClass = 'role-badge';
+
+// Check for founder (via group.class or group.bodyclass)
+var isFounder = user && user.group && (
+    (user.group.class && user.group.class.includes('founder')) ||
+    (user.group.bodyclass && user.group.bodyclass.includes('founder'))
+);
+
+if (isFounder) {
+    roleClass += ' founder';          // special CSS class
+    groupName = 'Founder';            // display text override
+} else if (groupName.toLowerCase() === 'administrator') {
+    roleClass += ' admin';
+} else if (groupName.toLowerCase() === 'moderator') {
+    roleClass += ' moderator';
+} else if (groupName.toLowerCase() === 'developer') {
+    roleClass += ' developer';
+} else {
+    roleClass += ' member';
+}
         
         // Added: Generate a CSS-safe class from the group name
         var groupCssClass = 'group-' + sanitizeGroupName(groupName);

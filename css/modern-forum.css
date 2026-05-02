@@ -3,7 +3,7 @@
  optimized & mathematically perfected with φ(1.618)
  essential styles - modern posts edition
  ACCESSIBILITY ENHANCED (v2.0)
- ADDED: Group-specific avatar borders & badges
+ ADDED: Group-specific avatar borders & badges (posts + modal)
 ============================================*/
 
 /*============================================
@@ -696,7 +696,7 @@ img {
 }
 
 /*============================================
- 7b. GROUP-SPECIFIC AVATAR BORDERS
+ 7b. GROUP-SPECIFIC AVATAR BORDERS (POSTS)
 ============================================*/
 .post-card.group-founder .avatar-circle,
 .post-card.group-founder .initial-avatar {
@@ -1265,6 +1265,8 @@ body.modal-open {
 .role-global-mod { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
 .role-moderator { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
 .role-developer { background: linear-gradient(135deg, #0EA5E9, #0284C7); }
+.role-game-dev { background: linear-gradient(135deg, #3B82F6, #2563EB); }
+.role-fan { background: linear-gradient(135deg, #EC4899, #BE185D); }
 .role-premium { background: linear-gradient(135deg, #D946EF, #C026D3); }
 .role-vip { background: linear-gradient(135deg, #F97316, #EA580C); }
 .role-member { background: linear-gradient(135deg, #059669, #047857); }
@@ -1310,6 +1312,59 @@ body.modal-open {
 .modern-modal-footer i {
     margin-right: 0.25rem;
     font-size: 0.65rem;
+}
+
+/*============================================
+ 9b. MODAL GROUP-SPECIFIC AVATAR BORDERS
+============================================*/
+.modern-like-item.group-founder .modern-like-avatar,
+.modern-like-item.group-founder .modal-initial-avatar {
+    border-color: #F59E0B !important;
+}
+.modern-like-item.group-founder .modern-like-avatar:hover,
+.modern-like-item.group-founder .modal-initial-avatar:hover {
+    box-shadow: 0 0 0 2px #F59E0B, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.modern-like-item.group-administrator .modern-like-avatar,
+.modern-like-item.group-administrator .modal-initial-avatar {
+    border-color: #DC2626 !important;
+}
+.modern-like-item.group-administrator .modern-like-avatar:hover,
+.modern-like-item.group-administrator .modal-initial-avatar:hover {
+    box-shadow: 0 0 0 2px #DC2626, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.modern-like-item.group-global-moderator .modern-like-avatar,
+.modern-like-item.group-global-moderator .modal-initial-avatar {
+    border-color: #06B6D4 !important;
+}
+.modern-like-item.group-global-moderator .modern-like-avatar:hover,
+.modern-like-item.group-global-moderator .modal-initial-avatar:hover {
+    box-shadow: 0 0 0 2px #06B6D4, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.modern-like-item.group-game-dev .modern-like-avatar,
+.modern-like-item.group-game-dev .modal-initial-avatar {
+    border-color: #3B82F6 !important;
+}
+.modern-like-item.group-game-dev .modern-like-avatar:hover,
+.modern-like-item.group-game-dev .modal-initial-avatar:hover {
+    box-shadow: 0 0 0 2px #3B82F6, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.modern-like-item.group-fan .modern-like-avatar,
+.modern-like-item.group-fan .modal-initial-avatar {
+    border-color: #EC4899 !important;
+}
+.modern-like-item.group-fan .modern-like-avatar:hover,
+.modern-like-item.group-fan .modal-initial-avatar:hover {
+    box-shadow: 0 0 0 2px #EC4899, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.modern-like-item.group-member .modern-like-avatar,
+.modern-like-item.group-member .modal-initial-avatar {
+    border-color: var(--primary-color) !important;
 }
 
 /*============================================

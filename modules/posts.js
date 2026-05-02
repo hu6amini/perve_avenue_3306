@@ -2,6 +2,7 @@
 // Forum Modernizer - Posts Module (API-enhanced, all original functionality preserved)
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
 // ADDED: Relative timestamps for post time and edit info
+// ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
@@ -666,6 +667,16 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
+    // HELPER: sanitize group name for CSS class
+    // ============================================================================
+    function sanitizeGroupName(groupName) {
+        if (!groupName) return 'unknown';
+        return groupName.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')   // replace non-alphanumeric with hyphens
+            .replace(/^-+|-+$/g, '');      // trim leading/trailing hyphens
+    }
+
+    // ============================================================================
     // GENERATE MODERN CARD (local avatar uses real DOM element)
     // ============================================================================
     function formatNumber(num) {
@@ -702,6 +713,10 @@ var ForumPostsModule = (function(Utils, EventBus) {
         else if (groupName.toLowerCase() === 'moderator') roleClass += ' moderator';
         else if (groupName.toLowerCase() === 'developer') roleClass += ' developer';
         else roleClass += ' member';
+        
+        // Added: Generate a CSS-safe class from the group name
+        var groupCssClass = 'group-' + sanitizeGroupName(groupName);
+        
         var postCount = (user && typeof user.messages !== 'undefined') ? user.messages : data.postCount;
         var reputation = (user && typeof user.reputation !== 'undefined') ? user.reputation : data.reputation;
         var joinDateFormatted = '';
@@ -745,7 +760,8 @@ var ForumPostsModule = (function(Utils, EventBus) {
             '</time>' +
             '</div>';
 
-        return '<article class="post-card" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
+        // Modified article tag: added dynamic group class
+        return '<article class="post-card ' + groupCssClass + '" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
                 '<div class="post-meta">' +
                     '<div class="post-number"><i class="fa-regular fa-hashtag" aria-hidden="true"></i> ' + data.postNumber + '</div>' +
@@ -1097,7 +1113,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars + group class)');
     }
 
     // ============================================================================

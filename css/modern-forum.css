@@ -3,6 +3,7 @@
  optimized & mathematically perfected with φ(1.618)
  essential styles - modern posts edition
  ACCESSIBILITY ENHANCED (v2.0)
+ ADDED: Group-specific avatar borders & badges
 ============================================*/
 
 /*============================================
@@ -83,6 +84,9 @@ body {
     --dev-color: #0EA5E9;
     --member-color: #059669;
     --guest-color: #6B7280;
+    --founder-color: #F59E0B;
+    --game-dev-color: #3B82F6;
+    --fan-color: #EC4899;
 
     /* Shadows - Golden ratio progression */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -441,7 +445,7 @@ img {
     transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), 
                 box-shadow 0.2s ease,
                 border-color 0.2s ease;
- font-size: calc(60px * 0.618);
+    font-size: calc(60px * 0.618);
 }
 
 .initial-avatar:hover, .modal-initial-avatar:hover {
@@ -543,6 +547,20 @@ img {
 }
 .role-badge.member {
     background: var(--primary-color);
+}
+
+/* NEW: Group-specific badges */
+.role-badge.founder {
+    background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+}
+.role-badge.global-moderator {
+    background: linear-gradient(135deg, #06B6D4, #0891B2) !important;
+}
+.role-badge.game-dev {
+    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+}
+.role-badge.fan {
+    background: linear-gradient(135deg, #EC4899, #BE185D) !important;
 }
 
 /* User stats grid */
@@ -675,6 +693,59 @@ img {
 .post-ip {
     font-size: 0.7rem;
     color: var(--text-tertiary);
+}
+
+/*============================================
+ 7b. GROUP-SPECIFIC AVATAR BORDERS
+============================================*/
+.post-card.group-founder .avatar-circle,
+.post-card.group-founder .initial-avatar {
+    border-color: #F59E0B !important;
+}
+.post-card.group-founder .avatar-circle:hover,
+.post-card.group-founder .initial-avatar:hover {
+    box-shadow: 0 0 0 2px #F59E0B, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.post-card.group-administrator .avatar-circle,
+.post-card.group-administrator .initial-avatar {
+    border-color: #DC2626 !important;
+}
+.post-card.group-administrator .avatar-circle:hover,
+.post-card.group-administrator .initial-avatar:hover {
+    box-shadow: 0 0 0 2px #DC2626, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.post-card.group-global-moderator .avatar-circle,
+.post-card.group-global-moderator .initial-avatar {
+    border-color: #06B6D4 !important;
+}
+.post-card.group-global-moderator .avatar-circle:hover,
+.post-card.group-global-moderator .initial-avatar:hover {
+    box-shadow: 0 0 0 2px #06B6D4, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.post-card.group-game-dev .avatar-circle,
+.post-card.group-game-dev .initial-avatar {
+    border-color: #3B82F6 !important;
+}
+.post-card.group-game-dev .avatar-circle:hover,
+.post-card.group-game-dev .initial-avatar:hover {
+    box-shadow: 0 0 0 2px #3B82F6, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.post-card.group-fan .avatar-circle,
+.post-card.group-fan .initial-avatar {
+    border-color: #EC4899 !important;
+}
+.post-card.group-fan .avatar-circle:hover,
+.post-card.group-fan .initial-avatar:hover {
+    box-shadow: 0 0 0 2px #EC4899, 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.post-card.group-member .avatar-circle,
+.post-card.group-member .initial-avatar {
+    border-color: var(--primary-color) !important;
 }
 
 /*============================================
@@ -1109,7 +1180,7 @@ body.modal-open {
     transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), 
                 box-shadow 0.2s ease,
                 border-color 0.2s ease;
- font-size: calc(48px * 0.618);
+    font-size: calc(48px * 0.618);
 }
 
 .modern-status-dot {
@@ -1306,5 +1377,8 @@ img, .avatar-circle {
     }
 }
 
-.ve-content.color img:not(img[alt="fav"],img[src^="https://img.forumfree.net/html/emoticons/new/"],[class*=e1a-],img[alt$=":"],.res_tmb img,.emojione){max-width:calc(100% - (2* 5px))!important}
+.ve-content.color img:not(img[alt="fav"],img[src^="https://img.forumfree.net/html/emoticons/new/"],[class*=e1a-],img[alt$=":"],.res_tmb img,.emojione){
+    max-width: calc(100% - (2* 5px))!important;
+}
+
 .popup.pop_points, .forumfree-modal.\.report-modal-notify.Blocker.current, .ff-modal.modal.report-modal {visibility:hidden!important}

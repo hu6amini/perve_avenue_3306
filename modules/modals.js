@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Modern Modals for ForumFree (Likes + Report)
 // @namespace    http://tampermonkey.net/
-// @version      7.6
-// @description  Replaces old likes popup, report modal, and admin report-notify modal – uses ForumCoreObserver exclusively.
+// @version      7.7
+// @description  Replaces old likes popup, report modal, and admin report-notify modal – uses ForumCoreObserver exclusively. Added group classes to like items.
 // @author       You
 // @match        *://*.forumfree.it/*
 // @match        *://*.forumcommunity.net/*
@@ -65,6 +65,14 @@ var ModalsModule = (function() {
     ];
 
     var userProfileLinks = new Map();
+
+    // ========== HELPER: SANITIZE GROUP NAME FOR CSS CLASS ==========
+    function sanitizeGroupName(groupName) {
+        if (!groupName) return 'unknown';
+        return groupName.toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
 
     // ========== HELPER: GET COLOR FROM NICKNAME ==========
     function getColorFromNickname(nickname, userId) {
@@ -271,29 +279,31 @@ var ModalsModule = (function() {
     }
 
     function getUserRoleInfo(user) {
-        if (user.banned === 1) return { class: 'role-banned', text: 'Banned' };
+        // Determine role class and display text (as before)
+        if (user.banned === 1) return { class: 'role-banned', text: 'Banned', groupNameForClass: 'banned' };
         if (user.group) {
             var groupName = (user.group.name || '').toLowerCase();
             var groupClass = (user.group.class || '').toLowerCase();
             var groupId = user.group.id;
-            if (groupClass.indexOf('founder') !== -1 || groupName === 'founder') return { class: 'role-founder', text: 'Founder' };
-            if (groupName === 'administrator' || groupClass.indexOf('admin') !== -1 || groupId === 1) return { class: 'role-administrator', text: 'Administrator' };
-            if (groupName === 'global moderator' || groupClass.indexOf('global_mod') !== -1) return { class: 'role-global-mod', text: 'Global Mod' };
-            if (groupName === 'moderator' || groupClass.indexOf('mod') !== -1) return { class: 'role-moderator', text: 'Moderator' };
-            if (groupName === 'developer' || groupClass.indexOf('developer') !== -1) return { class: 'role-developer', text: 'Developer' };
-            if (groupName === 'premium' || groupClass.indexOf('premium') !== -1) return { class: 'role-premium', text: 'Premium' };
-            if (groupName === 'vip' || groupClass.indexOf('vip') !== -1) return { class: 'role-vip', text: 'VIP' };
+            if (groupClass.indexOf('founder') !== -1 || groupName === 'founder') return { class: 'role-founder', text: 'Founder', groupNameForClass: 'founder' };
+            if (groupName === 'administrator' || groupClass.indexOf('admin') !== -1 || groupId === 1) return { class: 'role-administrator', text: 'Administrator', groupNameForClass: 'administrator' };
+            if (groupName === 'global moderator' || groupClass.indexOf('global_mod') !== -1) return { class: 'role-global-mod', text: 'Global Mod', groupNameForClass: 'global-moderator' };
+            if (groupName === 'moderator' || groupClass.indexOf('mod') !== -1) return { class: 'role-moderator', text: 'Moderator', groupNameForClass: 'moderator' };
+            if (groupName === 'developer' || groupClass.indexOf('developer') !== -1) return { class: 'role-developer', text: 'Developer', groupNameForClass: 'developer' };
+            if (groupName === 'game dev' || groupClass.indexOf('game_dev') !== -1) return { class: 'role-game-dev', text: 'Game Dev', groupNameForClass: 'game-dev' };
+            if (groupName === 'fan') return { class: 'role-fan', text: 'Fan', groupNameForClass: 'fan' };
+            if (groupName === 'premium' || groupClass.indexOf('premium') !== -1) return { class: 'role-premium', text: 'Premium', groupNameForClass: 'premium' };
+            if (groupName === 'vip' || groupClass.indexOf('vip') !== -1) return { class: 'role-vip', text: 'VIP', groupNameForClass: 'vip' };
+            // fallback to the raw group name for custom groups
+            return { class: 'role-member', text: user.group.name || 'Member', groupNameForClass: user.group.name || 'member' };
         }
         if (user.permission) {
-            if (user.permission.founder === 1) return { class: 'role-founder', text: 'Founder' };
-            if (user.permission.admin === 1) return { class: 'role-administrator', text: 'Administrator' };
-            if (user.permission.global_mod === 1) return { class: 'role-global-mod', text: 'Global Mod' };
-            if (user.permission.mod_sez === 1) return { class: 'role-moderator', text: 'Moderator' };
+            if (user.permission.founder === 1) return { class: 'role-founder', text: 'Founder', groupNameForClass: 'founder' };
+            if (user.permission.admin === 1) return { class: 'role-administrator', text: 'Administrator', groupNameForClass: 'administrator' };
+            if (user.permission.global_mod === 1) return { class: 'role-global-mod', text: 'Global Mod', groupNameForClass: 'global-moderator' };
+            if (user.permission.mod_sez === 1) return { class: 'role-moderator', text: 'Moderator', groupNameForClass: 'moderator' };
         }
-        if (user.group && user.group.name && user.group.name !== 'Members' && user.group.name !== 'member') {
-            return { class: 'role-member', text: user.group.name };
-        }
-        return { class: 'role-member', text: 'Member' };
+        return { class: 'role-member', text: 'Member', groupNameForClass: 'member' };
     }
 
     function formatNumber(num) {
@@ -517,10 +527,14 @@ var ModalsModule = (function() {
                 var statusText = user.status || 'offline';
                 var statusClass = user.status === 'online' ? 'online' : (user.status === 'idle' ? 'idle' : (user.status === 'dnd' ? 'dnd' : 'offline'));
                 var escapedNickname = escapeHtml(user.nickname);
+                
+                // Compute group class from the roleInfo (or directly from user.group)
+                var groupRaw = (user.group && user.group.name) ? user.group.name : roleInfo.text;
+                var groupClass = 'group-' + sanitizeGroupName(groupRaw);
 
                 if (avatarData.type === 'img') {
                     itemsHtml += 
-                        '<div class="modern-like-item" data-user-id="' + user.id + '" tabindex="0" role="button" aria-label="View profile of ' + escapedNickname + '">' +
+                        '<div class="modern-like-item ' + groupClass + '" data-user-id="' + user.id + '" tabindex="0" role="button" aria-label="View profile of ' + escapedNickname + '">' +
                             '<div class="modern-like-avatar-wrapper">' +
                                 '<img class="modern-like-avatar" src="' + avatarData.url + '" alt="Avatar of ' + escapedNickname + '" loading="lazy" decoding="async" width="48" height="48">' +
                                 '<span class="modern-status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
@@ -538,7 +552,7 @@ var ModalsModule = (function() {
                         '</div>';
                 } else {
                     itemsHtml += 
-                        '<div class="modern-like-item" data-user-id="' + user.id + '" tabindex="0" role="button" aria-label="View profile of ' + escapedNickname + '">' +
+                        '<div class="modern-like-item ' + groupClass + '" data-user-id="' + user.id + '" tabindex="0" role="button" aria-label="View profile of ' + escapedNickname + '">' +
                             '<div class="modern-like-avatar-wrapper">' +
                                 '<div class="modal-initial-avatar" style="background-color: #' + avatarData.bgColor + ';">' + escapeHtml(avatarData.initial) + '</div>' +
                                 '<span class="modern-status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
@@ -589,7 +603,7 @@ var ModalsModule = (function() {
         processingModal = false;
     }
 
-    // ========== USER REPORT MODAL ==========
+    // ========== USER REPORT MODAL (unchanged from before) ==========
     function autoGrowTextarea(textarea) {
         if (!textarea) return;
         textarea.style.height = 'auto';
@@ -816,7 +830,7 @@ var ModalsModule = (function() {
         });
     }
 
-    // ========== ADMIN REPORT NOTIFY MODAL ==========
+    // ========== ADMIN REPORT NOTIFY MODAL (unchanged) ==========
     function closeModernReportNotifyModal(legacyModal, skipOriginalClose) {
         if (currentReportNotifyModal) {
             unlockBodyScroll();
@@ -1174,9 +1188,8 @@ var ModalsModule = (function() {
             id: 'modern-likes-modal',
             selector: '.popup.pop_points, #overlay.pop_points',
             priority: 'high',
-            reprocessOnStyle: true,   // CRITICAL: re‑invoke callback when style changes from none → block
+            reprocessOnStyle: true,
             callback: function(node) {
-                // Only act if the node is visible (display: block)
                 if (node && node.style && node.style.display === 'block') {
                     var userIds = extractUserIdsFromLegacyModal(node);
                     if (userIds.length > 0 && !currentModal) {
@@ -1186,7 +1199,7 @@ var ModalsModule = (function() {
             }
         });
 
-        // Report modals – these are recreated each time, so no need for reprocessOnStyle
+        // Report modals
         globalThis.forumObserver.register({
             id: 'modern-report-modal',
             selector: '.ff-modal.modal.report-modal, .report-modal',
@@ -1210,7 +1223,6 @@ var ModalsModule = (function() {
         console.log('[Modern Modals] Registered with ForumCoreObserver (likes modal uses reprocessOnStyle flag)');
     }
 
-    // Module export
     var initialized = false;
     async function initialize() {
         if (initialized) return;

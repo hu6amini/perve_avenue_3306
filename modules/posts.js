@@ -4,6 +4,7 @@
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
 // ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
+// ADDED: Support for "member_posts" page – extract global user info from <h2 class="mtitle">
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
@@ -395,30 +396,29 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // ============================================================================
     // ACTION BUTTON AVAILABILITY CHECK
     // ============================================================================
-// In getAvailableActions($post, postId)
-function getAvailableActions($post, postId) {
-    var actions = {
-        quote: false,
-        edit: false,
-        delete: false,
-        report: true,
-        share: true
-    };
-    
-    // Quote
-    var quoteLink = $post.querySelector('a[href*="CODE=02"]');
-    if (quoteLink) actions.quote = true;
-    
-    // Edit
-    var editLink = $post.querySelector('a[href*="CODE=08"]');
-    if (editLink) actions.edit = true;
-    
-    // Delete – now matches both onclick and href with javascript:delete_post
-    var deleteEl = $post.querySelector('a[onclick*="delete_post"], a[href*="delete_post"], .deletepost, a[href*="CODE=09"]');
-    if (deleteEl) actions.delete = true;
-    
-    return actions;
-}
+    function getAvailableActions($post, postId) {
+        var actions = {
+            quote: false,
+            edit: false,
+            delete: false,
+            report: true,
+            share: true
+        };
+        
+        // Quote
+        var quoteLink = $post.querySelector('a[href*="CODE=02"]');
+        if (quoteLink) actions.quote = true;
+        
+        // Edit
+        var editLink = $post.querySelector('a[href*="CODE=08"]');
+        if (editLink) actions.edit = true;
+        
+        // Delete – matches both onclick and href with javascript:delete_post
+        var deleteEl = $post.querySelector('a[onclick*="delete_post"], a[href*="delete_post"], .deletepost, a[href*="CODE=09"]');
+        if (deleteEl) actions.delete = true;
+        
+        return actions;
+    }
 
     // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)
@@ -1102,14 +1102,42 @@ function getAvailableActions($post, postId) {
             if (isValidPost(posts[i])) validPosts.push(posts[i]);
         }
 
+        // ---------------- MEMBER POSTS PAGE DETECTION ----------------
+        var globalMid = null;
+        var globalUsername = null;
+        var memberPostsHeader = document.querySelector('.topic.member_posts .mtitle b');
+        if (memberPostsHeader) {
+            // Extract MID from class name (e.g., "user12252299") or from onclick
+            var classNames = memberPostsHeader.className;
+            var match = classNames.match(/user(\d+)/);
+            if (match) {
+                globalMid = match[1];
+            } else {
+                // Fallback: parse onclick location
+                var onclickAttr = memberPostsHeader.getAttribute('onclick');
+                if (onclickAttr) {
+                    var midMatch = onclickAttr.match(/MID=(\d+)/);
+                    if (midMatch) globalMid = midMatch[1];
+                }
+            }
+            globalUsername = memberPostsHeader.textContent.trim();
+            console.log('[PostsModule] Detected member posts page. Global MID:', globalMid, 'Username:', globalUsername);
+        }
+
         var mids = [];
         var postsData = [];
         for (var i = 0; i < validPosts.length; i++) {
             var $post = validPosts[i];
             var postId = getPostId($post);
             if (!postId || convertedPostIds.has(postId)) continue;
+            
             var mid = getMidFromPost($post);
+            // If no MID found but we have a global MID (member posts page), use that
+            if (!mid && globalMid) {
+                mid = globalMid;
+            }
             mids.push(mid);
+            
             var reactionData = getReactionData($post);
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
@@ -1129,13 +1157,19 @@ function getAvailableActions($post, postId) {
 
             var editInfo = getEditInfo($post);
             var availableActions = getAvailableActions($post, postId);
+            
+            var username = getUsername($post);
+            // Override with global username if needed
+            if (username === 'Unknown' && globalUsername) {
+                username = globalUsername;
+            }
 
             postsData.push({
                 postId: postId,
                 mid: mid,
                 originalPost: $post,
                 index: i,
-                username: getUsername($post),
+                username: username,
                 groupText: getGroupText($post),
                 postCount: getPostCount($post),
                 reputation: getReputation($post),

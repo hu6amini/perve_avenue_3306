@@ -561,14 +561,15 @@ img {
 .user-name {
     font-weight: 700;
     font-size: var(--text-base);
-    color: var(--text-primary)!important;
     cursor: pointer;
     display: flex;
     text-align: left;
     width: fit-content;
 }
 
-.user-name:hover {
+.user-name a {color: var(--text-primary)}
+
+.user-name a:hover {
     color: var(--primary-light);
     text-decoration: underline;
 }

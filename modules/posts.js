@@ -395,30 +395,30 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // ============================================================================
     // ACTION BUTTON AVAILABILITY CHECK
     // ============================================================================
-    function getAvailableActions($post, postId) {
-        var actions = {
-            quote: false,
-            edit: false,
-            delete: false,
-            report: true,   // always show our custom report button
-            share: true     // always show share button
-        };
-        
-        // Check for quote link (CODE=02 in href)
-        var quoteLink = $post.querySelector('a[href*="CODE=02"]');
-        if (quoteLink) actions.quote = true;
-        
-        // Check for edit link (CODE=08 in href)
-        var editLink = $post.querySelector('a[href*="CODE=08"]');
-        if (editLink) actions.edit = true;
-        
-        // Check for delete functionality – look for delete link/button
-        // Common patterns: onclick="delete_post(...)" or class containing "delete"
-        var deleteEl = $post.querySelector('a[onclick*="delete_post"], .deletepost, a[href*="CODE=09"]');
-        if (deleteEl) actions.delete = true;
-        
-        return actions;
-    }
+// In getAvailableActions($post, postId)
+function getAvailableActions($post, postId) {
+    var actions = {
+        quote: false,
+        edit: false,
+        delete: false,
+        report: true,
+        share: true
+    };
+    
+    // Quote
+    var quoteLink = $post.querySelector('a[href*="CODE=02"]');
+    if (quoteLink) actions.quote = true;
+    
+    // Edit
+    var editLink = $post.querySelector('a[href*="CODE=08"]');
+    if (editLink) actions.edit = true;
+    
+    // Delete – now matches both onclick and href with javascript:delete_post
+    var deleteEl = $post.querySelector('a[onclick*="delete_post"], a[href*="delete_post"], .deletepost, a[href*="CODE=09"]');
+    if (deleteEl) actions.delete = true;
+    
+    return actions;
+}
 
     // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)

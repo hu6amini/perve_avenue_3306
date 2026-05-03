@@ -1431,9 +1431,41 @@ img, .avatar-circle {
         transform: translateY(0);
     }
 }
-
+/*WYSIWYG images*/
 .ve-content.color img:not(img[alt="fav"],img[src^="https://img.forumfree.net/html/emoticons/new/"],[class*=e1a-],img[alt$=":"],.res_tmb img,.emojione){
     max-width: calc(100% - (2* 5px))!important;
 }
+
+/*============================================
+ summary modern header(body#send)============================================ */
+.summary-header.modern-section-header {margin-bottom: var(--space-lg);
+ padding: var(--pad-4) var(--pad-6);
+ background: var(--surface-color);
+ border-radius: var(--radius);
+ border: 1px solid var(--border-color);
+ box-shadow: var(--shadow-sm)}
+
+.summary-header-content {display: flex;
+ align-items: center;
+ gap: var(--space-sm)}
+
+.summary-header-content i {font-size: 1.4rem;
+ color: var(--primary-color)}
+
+.summary-header-content h3 {font-family: var(--font-heading);
+ font-size: var(--text-lg);
+ font-weight: 500;
+ margin: 0;
+ color: var(--text-primary)}
+
+.summary-subtitle {font-size: var(--text-sm);
+ font-weight: normal;
+ color: var(--text-tertiary);
+ margin-left: var(--space-xs)}
+
+@media(max-width: 48em) {.summary-header-content h3 {font-size: var(--text-md)}
+ .summary-subtitle {display: block;
+ margin-left: 0;
+ font-size: var(--text-xs)}}
 
 .popup.pop_points, .forumfree-modal.\.report-modal-notify.Blocker.current, .ff-modal.modal.report-modal {visibility:hidden!important}

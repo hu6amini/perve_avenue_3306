@@ -1353,126 +1353,134 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // ============================================================================
     // SUMMARY CONVERSION (NEW) – with modern header
     // ============================================================================
-    async function convertSummaryPosts() {
-        if (document.body.id !== 'send') return;
-        var summaryEl = document.querySelector('.summary');
-        if (!summaryEl) return;
-        
-        // Create container for modern cards
-        var container = document.createElement('div');
+async function convertSummaryPosts() {
+    if (document.body.id !== 'send') return;
+    var summaryEl = document.querySelector('.summary');
+    if (!summaryEl) return;
+
+    // Optional: hide original summary (uncomment if you want to replace it)
+    // summaryEl.style.display = 'none';
+
+    // Create or get container outside legacy .container
+    var container = document.getElementById('modern-summary-container');
+    if (!container) {
+        container = document.createElement('div');
         container.id = 'modern-summary-container';
         container.className = 'modern-posts-container';
-        summaryEl.parentNode.insertBefore(container, summaryEl.nextSibling);
-        
-        // ─── MODERN HEADER ─────────────────────────────────────────────
-        var header = document.createElement('div');
-        header.className = 'summary-header modern-section-header';
-        header.innerHTML = `
-            <div class="summary-header-content">
-                <i class="fa-regular fa-clock" aria-hidden="true"></i>
-                <h3>Latest posts <span class="summary-subtitle">(last 10, newest first)</span></h3>
-            </div>
-        `;
-        container.appendChild(header);
-        
-        var listItems = summaryEl.querySelectorAll('.list > li');
-        if (!listItems.length) return;
-        
-        var mids = [];
-        var postsData = [];
-        
-        for (var i = 0; i < listItems.length; i++) {
-            var li = listItems[i];
-            var nickLink = li.querySelector('.nick a');
-            if (!nickLink) continue;
-            var username = nickLink.textContent.trim();
-            var midMatch = nickLink.href.match(/MID=(\d+)/);
-            var mid = midMatch ? midMatch[1] : null;
-            mids.push(mid);
-            
-            // Extract group from CSS classes (box_*)
-            var groupName = 'Member';
-            var classNames = li.className;
-            if (classNames.includes('box_founder')) groupName = 'Founder';
-            else if (classNames.includes('box_amministratore')) groupName = 'Administrator';
-            else if (classNames.includes('box_moderatore')) groupName = 'Moderator';
-            else if (classNames.includes('box_gruppo4')) groupName = 'Member';
-            
-            // Post date
-            var whenSpan = li.querySelector('.when');
-            var postDate = null;
-            if (whenSpan) {
-                var title = whenSpan.getAttribute('title');
-                if (title) {
-                    postDate = parseDateFromTitle(title);
-                } else {
-                    var text = whenSpan.textContent.trim();
-                    text = text.replace(/^Posted\s*/i, '');
-                    postDate = parseDateFromTitle(text);
-                }
-            }
-            var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
-            
-            // Content
-            var contentDiv = li.querySelector('.color.Item');
-            var contentHtml = '';
-            if (contentDiv) {
-                var clone = contentDiv.cloneNode(true);
-                // Remove any signature or edit info (just in case)
-                var sig = clone.querySelector('.signature');
-                if (sig) sig.remove();
-                var editSpan = clone.querySelector('.edit');
-                if (editSpan) editSpan.remove();
-                // Transform embedded links
-                var tempHtml = clone.innerHTML;
-                tempHtml = transformEmbeddedLinks(tempHtml);
-                contentHtml = tempHtml;
-            }
-            
-            postsData.push({
-                postId: 'summary_' + i, // dummy id
-                mid: mid,
-                username: username,
-                groupText: groupName,
-                contentHtml: contentHtml,
-                relativeTime: relativeTime,
-                postDate: postDate,
-                isSummary: true,
-                hideActions: true,
-                hideFooter: true,
-                postNumber: i + 1,
-                // Provide default empty values for fields expected by generateModernPost
-                postCount: '0',
-                reputation: '0',
-                isOnline: false,
-                userTitle: 'Member',
-                rankIconClass: 'fa-medal fa-regular',
-                likes: 0,
-                hasReactions: false,
-                reactionCount: 0,
-                reactions: [],
-                availableActions: {}
-            });
-        }
-        
-        if (!mids.length) return;
-        
-        await fetchMultipleUsers(mids);
-        
-        for (var i = 0; i < postsData.length; i++) {
-            var data = postsData[i];
-            var apiUser = data.mid ? userDataCache.get(data.mid) : null;
-            var completeData = Object.assign({}, data, { apiUser: apiUser });
-            var cardHtml = generateModernPost(completeData);
-            var temp = document.createElement('div');
-            temp.innerHTML = cardHtml;
-            var card = temp.firstElementChild;
-            container.appendChild(card);
-        }
-        
-        console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed with modern header');
+        var wrapper = document.getElementById('modern-forum-wrapper');
+        if (wrapper) wrapper.appendChild(container);
+        else document.body.appendChild(container);
+    } else {
+        container.innerHTML = ''; // clear if re-running
     }
 
+    // ─── MODERN HEADER ─────────────────────────────────────────────
+    var header = document.createElement('div');
+    header.className = 'summary-header modern-section-header';
+    header.innerHTML = `
+        <div class="summary-header-content">
+            <i class="fa-regular fa-clock" aria-hidden="true"></i>
+            <h3>Latest posts <span class="summary-subtitle">(last 10, newest first)</span></h3>
+        </div>
+    `;
+    container.appendChild(header);
+
+    var listItems = summaryEl.querySelectorAll('.list > li');
+    if (!listItems.length) return;
+
+    var mids = [];
+    var postsData = [];
+
+    for (var i = 0; i < listItems.length; i++) {
+        var li = listItems[i];
+        var nickLink = li.querySelector('.nick a');
+        if (!nickLink) continue;
+        var username = nickLink.textContent.trim();
+        var midMatch = nickLink.href.match(/MID=(\d+)/);
+        var mid = midMatch ? midMatch[1] : null;
+        mids.push(mid);
+
+        // Extract group from CSS classes (box_*)
+        var groupName = 'Member';
+        var classNames = li.className;
+        if (classNames.includes('box_founder')) groupName = 'Founder';
+        else if (classNames.includes('box_amministratore')) groupName = 'Administrator';
+        else if (classNames.includes('box_moderatore')) groupName = 'Moderator';
+        else if (classNames.includes('box_gruppo4')) groupName = 'Member';
+
+        // Post date
+        var whenSpan = li.querySelector('.when');
+        var postDate = null;
+        if (whenSpan) {
+            var title = whenSpan.getAttribute('title');
+            if (title) {
+                postDate = parseDateFromTitle(title);
+            } else {
+                var text = whenSpan.textContent.trim();
+                text = text.replace(/^Posted\s*/i, '');
+                postDate = parseDateFromTitle(text);
+            }
+        }
+        var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
+
+        // Content
+        var contentDiv = li.querySelector('.color.Item');
+        var contentHtml = '';
+        if (contentDiv) {
+            var clone = contentDiv.cloneNode(true);
+            // Remove signature or edit info if present
+            var sig = clone.querySelector('.signature');
+            if (sig) sig.remove();
+            var editSpan = clone.querySelector('.edit');
+            if (editSpan) editSpan.remove();
+            var tempHtml = clone.innerHTML;
+            tempHtml = transformEmbeddedLinks(tempHtml);
+            contentHtml = tempHtml;
+        }
+
+        postsData.push({
+            postId: 'summary_' + i,
+            mid: mid,
+            username: username,
+            groupText: groupName,
+            contentHtml: contentHtml,
+            relativeTime: relativeTime,
+            postDate: postDate,
+            isSummary: true,
+            hideActions: true,
+            hideFooter: true,
+            postNumber: i + 1,
+            postCount: '0',
+            reputation: '0',
+            isOnline: false,
+            userTitle: 'Member',
+            rankIconClass: 'fa-medal fa-regular',
+            likes: 0,
+            hasReactions: false,
+            reactionCount: 0,
+            reactions: [],
+            availableActions: {}
+        });
+    }
+
+    if (!mids.length) return;
+
+    await fetchMultipleUsers(mids);
+
+    for (var i = 0; i < postsData.length; i++) {
+        var data = postsData[i];
+        var apiUser = data.mid ? userDataCache.get(data.mid) : null;
+        var completeData = Object.assign({}, data, { apiUser: apiUser });
+        var cardHtml = generateModernPost(completeData);
+        var temp = document.createElement('div');
+        temp.innerHTML = cardHtml;
+        var card = temp.firstElementChild;
+        container.appendChild(card);
+    }
+
+    console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed with modern header (outside legacy container)');
+}
+    
     // ============================================================================
     // INITIALIZE
     // ============================================================================

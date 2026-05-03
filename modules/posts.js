@@ -4,7 +4,7 @@
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
 // ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
-// ADDED: Support for "member_posts" page – extract global user info, hide reputation, disable reactions, add topic/forum buttons
+// ADDED: Support for "member_posts" page – extract global user info, hide reputation, disable reactions, add topic/forum buttons inside container
 // ADDED: Page restrictions – only runs on #topic, #send, #blog, and #search (with .topic.member_posts)
 // FIXED: Timestamp parsing on member_posts when title attribute is missing
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
@@ -877,21 +877,23 @@ var ForumPostsModule = (function(Utils, EventBus) {
             }
         }
 
-        // Build footer right buttons (member posts only)
-        var footerRightHtml = '';
-        if (data.isMemberPostsPage) {
+        // Build member actions container (topic and forum buttons)
+        var memberActionsHtml = '';
+        if (data.isMemberPostsPage && (data.topicLink || data.forumLink)) {
+            memberActionsHtml = '<div class="post-member-actions">';
             if (data.topicLink) {
-                footerRightHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
+                memberActionsHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
                     '<i class="fa-regular fa-message-dots" aria-hidden="true"></i>' +
                     '<span class="sr-only">Go to topic: ' + Utils.escapeHtml(data.topicTitle) + '</span>' +
                     '</button>';
             }
             if (data.forumLink) {
-                footerRightHtml += '<button class="action-icon member-forum-link" title="Go to forum" aria-label="Go to forum" data-forum-url="' + Utils.escapeHtml(data.forumLink) + '">' +
+                memberActionsHtml += '<button class="action-icon member-forum-link" title="Go to forum" aria-label="Go to forum" data-forum-url="' + Utils.escapeHtml(data.forumLink) + '">' +
                     '<i class="fa-regular fa-folder" aria-hidden="true"></i>' +
                     '<span class="sr-only">Go to forum: ' + Utils.escapeHtml(data.forumName) + '</span>' +
                     '</button>';
             }
+            memberActionsHtml += '</div>';
         }
 
         // Build user stats: conditionally include reputation
@@ -924,7 +926,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
             '</div>' +
             '<footer class="post-footer">' +
                 '<div class="post-reactions">' + likeButton + reactionsHtml + '</div>' +
-                footerRightHtml +
+                memberActionsHtml +
                 ipHtml +
             '</footer>' +
         '</article>';

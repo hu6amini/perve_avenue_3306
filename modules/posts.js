@@ -8,6 +8,7 @@
 // ADDED: Page restrictions – only runs on #topic, #send, #blog, and #search (with .topic.member_posts)
 // FIXED: Timestamp parsing on member_posts when title attribute is missing
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
+// NEW: Summary conversion on body#send – transforms .summary into modern post cards (no actions, no footer)
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -190,28 +191,27 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // Returns object describing avatar: either type: 'img' with url, or type: 'initial' with initial and bgColor
-function getUserAvatarData(user, username, userId) {
-    // Helper to detect default placeholder
-    function isDefaultAvatarUrl(url) {
-        if (!url) return false;
-        // Match both http/https and the exact path
-        return url.includes('style_images/default_avatar.png');
-    }
+    function getUserAvatarData(user, username, userId) {
+        // Helper to detect default placeholder
+        function isDefaultAvatarUrl(url) {
+            if (!url) return false;
+            return url.includes('style_images/default_avatar.png');
+        }
 
-    if (user && user.avatar && isValidAvatarUrl(user.avatar) && !isDefaultAvatarUrl(user.avatar)) {
-        var avatarUrl = user.avatar;
-        if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
-        if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
-            avatarUrl = avatarUrl.replace('http://', 'https://');
-        var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
-        if (optimized) return { type: 'img', url: optimized };
+        if (user && user.avatar && isValidAvatarUrl(user.avatar) && !isDefaultAvatarUrl(user.avatar)) {
+            var avatarUrl = user.avatar;
+            if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
+            if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
+                avatarUrl = avatarUrl.replace('http://', 'https://');
+            var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
+            if (optimized) return { type: 'img', url: optimized };
+        }
+        // Fallback to initial letter
+        var initial = username ? username.charAt(0).toUpperCase() : '?';
+        if (!initial.match(/[A-Z0-9]/i)) initial = '?';
+        var bgColor = getColorFromNickname(username, userId);
+        return { type: 'initial', initial: initial, bgColor: bgColor };
     }
-    // Fallback to initial letter
-    var initial = username ? username.charAt(0).toUpperCase() : '?';
-    if (!initial.match(/[A-Z0-9]/i)) initial = '?';
-    var bgColor = getColorFromNickname(username, userId);
-    return { type: 'initial', initial: initial, bgColor: bgColor };
-}
     
     // ============================================================================
     // HELPER FUNCTIONS
@@ -825,14 +825,18 @@ function getUserAvatarData(user, username, userId) {
             joinDateFormatted = 'Unknown join date';
         }
         
-        var likeButton = '<button class="reaction-btn like-btn" aria-label="Like this post" data-pid="' + data.postId + '">' +
-            '<i class="fa-regular fa-thumbs-up like-icon" aria-hidden="true"></i>';
-        if (data.likes > 0) likeButton += '<span class="like-count like-count-display">' + data.likes + '</span>';
-        likeButton += '</button>';
+        // Like button (only if not hiding footer and not summary)
+        var likeButton = '';
+        if (!data.hideFooter) {
+            likeButton = '<button class="reaction-btn like-btn" aria-label="Like this post" data-pid="' + data.postId + '">' +
+                '<i class="fa-regular fa-thumbs-up like-icon" aria-hidden="true"></i>';
+            if (data.likes > 0) likeButton += '<span class="like-count like-count-display">' + data.likes + '</span>';
+            likeButton += '</button>';
+        }
         
-        // Reactions (disabled on member_posts)
+        // Reactions (disabled on member_posts or summary)
         var reactionsHtml = '';
-        if (!data.isMemberPostsPage) {
+        if (!data.isMemberPostsPage && !data.hideFooter) {
             reactionsHtml = generateReactionButtons({
                 postId: data.postId,
                 hasReactions: data.hasReactions,
@@ -864,22 +868,22 @@ function getUserAvatarData(user, username, userId) {
             '</time>' +
             '</div>';
 
-        // Build action buttons (disabled on member_posts)
+        // Build action buttons (disabled on member_posts or summary)
         var actionsHtml = '';
-        if (!data.isMemberPostsPage) {
-            if (data.availableActions.quote) {
+        if (!data.hideActions && !data.isMemberPostsPage) {
+            if (data.availableActions && data.availableActions.quote) {
                 actionsHtml += '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>';
             }
-            if (data.availableActions.edit) {
+            if (data.availableActions && data.availableActions.edit) {
                 actionsHtml += '<button class="action-icon" title="Edit" aria-label="Edit this post" data-action="edit" data-pid="' + data.postId + '"><i class="fa-regular fa-pen-to-square"></i></button>';
             }
-            if (data.availableActions.share) {
+            if (data.availableActions && data.availableActions.share) {
                 actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
             }
-            if (data.availableActions.report) {
+            if (data.availableActions && data.availableActions.report) {
                 actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
             }
-            if (data.availableActions.delete) {
+            if (data.availableActions && data.availableActions.delete) {
                 actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
             }
         }
@@ -888,20 +892,20 @@ function getUserAvatarData(user, username, userId) {
         var memberActionsHtml = '';
         if (data.isMemberPostsPage && (data.topicLink || data.forumLink)) {
             memberActionsHtml = '<div class="post-member-actions">';
- if (data.topicLink) {
-    memberActionsHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
-        '<i class="fa-regular fa-message" aria-hidden="true"></i>' +
-        '</button>';
-}
-if (data.forumLink) {
-    memberActionsHtml += '<button class="action-icon member-forum-link" title="Go to forum" aria-label="Go to forum" data-forum-url="' + Utils.escapeHtml(data.forumLink) + '">' +
-        '<i class="fa-regular fa-folder" aria-hidden="true"></i>' +
-        '</button>';
-}
+            if (data.topicLink) {
+                memberActionsHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
+                    '<i class="fa-regular fa-message" aria-hidden="true"></i>' +
+                    '</button>';
+            }
+            if (data.forumLink) {
+                memberActionsHtml += '<button class="action-icon member-forum-link" title="Go to forum" aria-label="Go to forum" data-forum-url="' + Utils.escapeHtml(data.forumLink) + '">' +
+                    '<i class="fa-regular fa-folder" aria-hidden="true"></i>' +
+                    '</button>';
+            }
             memberActionsHtml += '</div>';
         }
 
-        // Build user stats: conditionally include reputation
+        // Build user stats: conditionally include reputation (skip on member_posts)
         var statsHtml = '<div class="user-rank"><i class="' + (data.rankIconClass || 'fa-medal fa-regular') + '" aria-hidden="true"></i> ' + (data.userTitle || 'Member') + '</div>' +
             '<div class="user-posts"><i class="fa-regular fa-message"></i> ' + formatNumber(postCount) + ' posts</div>';
         if (!data.isMemberPostsPage) {
@@ -909,13 +913,26 @@ if (data.forumLink) {
         }
         statsHtml += '<div class="user-joined"><i class="fa-regular fa-user-plus"></i> ' + joinDateFormatted + '</div>';
 
+        // Build header with conditional actions div
+        var headerActionsHtml = (actionsHtml !== '') ? '<div class="post-actions">' + actionsHtml + '</div>' : '';
+        
+        // Build footer only if not hidden
+        var footerHtml = '';
+        if (!data.hideFooter) {
+            footerHtml = '<footer class="post-footer">' +
+                '<div class="post-reactions">' + likeButton + reactionsHtml + '</div>' +
+                memberActionsHtml +
+                ipHtml +
+            '</footer>';
+        }
+
         return '<article class="post-card ' + groupCssClass + '" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
                 '<div class="post-meta">' +
                     '<div class="post-number"><i class="fa-regular fa-hashtag" aria-hidden="true"></i> ' + data.postNumber + '</div>' +
                     postTimeHtml +
                 '</div>' +
-                '<div class="post-actions">' + actionsHtml + '</div>' +
+                headerActionsHtml +
             '</header>' +
             '<div class="post-card-body">' +
                 '<div class="avatar-modern" data-pid="' + data.postId + '">' + avatarHtml + '</div>' +
@@ -929,11 +946,7 @@ if (data.forumLink) {
                 '<div class="post-message">' + data.contentHtml + editHtml + '</div>' +
                 signatureHtml +
             '</div>' +
-            '<footer class="post-footer">' +
-                '<div class="post-reactions">' + likeButton + reactionsHtml + '</div>' +
-                memberActionsHtml +
-                ipHtml +
-            '</footer>' +
+            footerHtml +
         '</article>';
     }
 
@@ -1188,7 +1201,7 @@ if (data.forumLink) {
     }
 
     // ============================================================================
-    // MAIN CONVERSION PIPELINE
+    // MAIN CONVERSION PIPELINE (regular posts)
     // ============================================================================
     async function convertAllPosts() {
         var container = getPostsContainer();
@@ -1209,13 +1222,11 @@ if (data.forumLink) {
         var memberPostsHeader = document.querySelector('.topic.member_posts .mtitle b');
         if (memberPostsHeader) {
             isMemberPostsPage = true;
-            // Extract MID from class name (e.g., "user12252299") or from onclick
             var classNames = memberPostsHeader.className;
             var match = classNames.match(/user(\d+)/);
             if (match) {
                 globalMid = match[1];
             } else {
-                // Fallback: parse onclick location
                 var onclickAttr = memberPostsHeader.getAttribute('onclick');
                 if (onclickAttr) {
                     var midMatch = onclickAttr.match(/MID=(\d+)/);
@@ -1234,7 +1245,6 @@ if (data.forumLink) {
             if (!postId || convertedPostIds.has(postId)) continue;
             
             var mid = getMidFromPost($post);
-            // If no MID found but we have a global MID (member posts page), use that
             if (!mid && globalMid) {
                 mid = globalMid;
             }
@@ -1244,7 +1254,6 @@ if (data.forumLink) {
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
 
-            // --- Extract post date from .when span ---
             var whenSpan = $post.querySelector('.when');
             var postPermalink = null;
             var postDate = null;
@@ -1257,7 +1266,6 @@ if (data.forumLink) {
                 if (title) {
                     postDate = parseDateFromTitle(title);
                 } else {
-                    // No title attribute – try text content (member_posts)
                     var text = whenSpan.textContent.trim();
                     text = text.replace(/^Posted:\s*/i, '');
                     if (text) {
@@ -1270,7 +1278,6 @@ if (data.forumLink) {
             var editInfo = getEditInfo($post);
             var availableActions = getAvailableActions($post, postId);
             
-            // On member_posts, disable all action buttons (they don't exist)
             if (isMemberPostsPage) {
                 availableActions.quote = false;
                 availableActions.edit = false;
@@ -1279,11 +1286,9 @@ if (data.forumLink) {
                 availableActions.share = false;
             }
             
-            // Extract topic/forum links for member_posts
             var memberLinks = isMemberPostsPage ? getMemberPostLinks($post) : { topicLink: null, topicTitle: null, forumLink: null, forumName: null };
             
             var username = getUsername($post);
-            // Override with global username if needed
             if (username === 'Unknown' && globalUsername) {
                 username = globalUsername;
             }
@@ -1316,7 +1321,9 @@ if (data.forumLink) {
                 topicLink: memberLinks.topicLink,
                 topicTitle: memberLinks.topicTitle,
                 forumLink: memberLinks.forumLink,
-                forumName: memberLinks.forumName
+                forumName: memberLinks.forumName,
+                hideActions: false,
+                hideFooter: false
             });
             convertedPostIds.add(postId);
         }
@@ -1344,6 +1351,121 @@ if (data.forumLink) {
     }
 
     // ============================================================================
+    // SUMMARY CONVERSION (NEW)
+    // ============================================================================
+    async function convertSummaryPosts() {
+        if (document.body.id !== 'send') return;
+        var summaryEl = document.querySelector('.summary');
+        if (!summaryEl) return;
+        
+        // Hide original summary
+        summaryEl.style.display = 'none';
+        
+        // Create container for modern cards
+        var container = document.createElement('div');
+        container.id = 'modern-summary-container';
+        container.className = 'modern-posts-container';
+        summaryEl.parentNode.insertBefore(container, summaryEl.nextSibling);
+        
+        var listItems = summaryEl.querySelectorAll('.list > li');
+        if (!listItems.length) return;
+        
+        var mids = [];
+        var postsData = [];
+        
+        for (var i = 0; i < listItems.length; i++) {
+            var li = listItems[i];
+            var nickLink = li.querySelector('.nick a');
+            if (!nickLink) continue;
+            var username = nickLink.textContent.trim();
+            var midMatch = nickLink.href.match(/MID=(\d+)/);
+            var mid = midMatch ? midMatch[1] : null;
+            mids.push(mid);
+            
+            // Extract group from CSS classes (box_*)
+            var groupName = 'Member';
+            var classNames = li.className;
+            if (classNames.includes('box_founder')) groupName = 'Founder';
+            else if (classNames.includes('box_amministratore')) groupName = 'Administrator';
+            else if (classNames.includes('box_moderatore')) groupName = 'Moderator';
+            else if (classNames.includes('box_gruppo4')) groupName = 'Member';
+            
+            // Post date
+            var whenSpan = li.querySelector('.when');
+            var postDate = null;
+            if (whenSpan) {
+                var title = whenSpan.getAttribute('title');
+                if (title) {
+                    postDate = parseDateFromTitle(title);
+                } else {
+                    var text = whenSpan.textContent.trim();
+                    text = text.replace(/^Posted\s*/i, '');
+                    postDate = parseDateFromTitle(text);
+                }
+            }
+            var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
+            
+            // Content
+            var contentDiv = li.querySelector('.color.Item');
+            var contentHtml = '';
+            if (contentDiv) {
+                var clone = contentDiv.cloneNode(true);
+                // Remove any signature or edit info (just in case)
+                var sig = clone.querySelector('.signature');
+                if (sig) sig.remove();
+                var editSpan = clone.querySelector('.edit');
+                if (editSpan) editSpan.remove();
+                // Transform embedded links
+                var tempHtml = clone.innerHTML;
+                tempHtml = transformEmbeddedLinks(tempHtml);
+                contentHtml = tempHtml;
+            }
+            
+            postsData.push({
+                postId: 'summary_' + i, // dummy id
+                mid: mid,
+                username: username,
+                groupText: groupName,
+                contentHtml: contentHtml,
+                relativeTime: relativeTime,
+                postDate: postDate,
+                isSummary: true,
+                hideActions: true,
+                hideFooter: true,
+                postNumber: i + 1,
+                // Provide default empty values for fields expected by generateModernPost
+                postCount: '0',
+                reputation: '0',
+                isOnline: false,
+                userTitle: 'Member',
+                rankIconClass: 'fa-medal fa-regular',
+                likes: 0,
+                hasReactions: false,
+                reactionCount: 0,
+                reactions: [],
+                availableActions: {}
+            });
+        }
+        
+        if (!mids.length) return;
+        
+        await fetchMultipleUsers(mids);
+        
+        for (var i = 0; i < postsData.length; i++) {
+            var data = postsData[i];
+            var apiUser = data.mid ? userDataCache.get(data.mid) : null;
+            var completeData = Object.assign({}, data, { apiUser: apiUser });
+            var cardHtml = generateModernPost(completeData);
+            var temp = document.createElement('div');
+            temp.innerHTML = cardHtml;
+            var card = temp.firstElementChild;
+            container.appendChild(card);
+        }
+        
+        console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed');
+    }
+
+    // ============================================================================
     // INITIALIZE
     // ============================================================================
     function initialize() {
@@ -1351,10 +1473,21 @@ if (data.forumLink) {
         // Only run on allowed pages
         if (!isValidPage()) {
             console.log('[PostsModule] Skipping – not a valid page (topic/send/blog or search with member_posts)');
+            // However, on send page we still want to convert summary even if there are no .post elements.
+            if (document.body.id === 'send' && document.querySelector('.summary')) {
+                convertSummaryPosts().catch(err => console.error('[PostsModule] Summary conversion error', err));
+            }
             return;
         }
         console.log('[PostsModule] Initializing API-enhanced version with initial avatars...');
-        convertAllPosts().catch(err => console.error('[PostsModule] Init error', err));
+        
+        // If we are on send page and summary exists, convert summary instead of regular posts
+        if (document.body.id === 'send' && document.querySelector('.summary')) {
+            convertSummaryPosts().catch(err => console.error('[PostsModule] Summary conversion error', err));
+        } else {
+            convertAllPosts().catch(err => console.error('[PostsModule] Init error', err));
+        }
+        
         isInitialized = true;
         if (typeof globalThis.forumObserver !== 'undefined' && globalThis.forumObserver) {
             globalThis.forumObserver.register({

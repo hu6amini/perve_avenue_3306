@@ -4,7 +4,7 @@
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
 // ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
-// ADDED: Support for "member_posts" page – extract global user info, hide reputation, disable reactions, add topic/forum links to footer
+// ADDED: Support for "member_posts" page – extract global user info, hide reputation, disable reactions, add topic/forum buttons
 // ADDED: Page restrictions – only runs on #topic, #send, #blog, and #search (with .topic.member_posts)
 // FIXED: Timestamp parsing on member_posts when title attribute is missing
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
@@ -817,6 +817,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
         } else {
             joinDateFormatted = 'Unknown join date';
         }
+        
         var likeButton = '<button class="reaction-btn like-btn" aria-label="Like this post" data-pid="' + data.postId + '">' +
             '<i class="fa-regular fa-thumbs-up like-icon" aria-hidden="true"></i>';
         if (data.likes > 0) likeButton += '<span class="like-count like-count-display">' + data.likes + '</span>';
@@ -876,17 +877,21 @@ var ForumPostsModule = (function(Utils, EventBus) {
             }
         }
 
-        // Build footer left side – for member_posts, show topic and forum links
-        var footerLeftHtml = '';
-        if (data.isMemberPostsPage && data.topicLink) {
-            footerLeftHtml = '<div class="post-info-links">';
+        // Build footer right buttons (member posts only)
+        var footerRightHtml = '';
+        if (data.isMemberPostsPage) {
             if (data.topicLink) {
-                footerLeftHtml += '<a href="' + Utils.escapeHtml(data.topicLink) + '" class="post-info-link" title="Go to topic"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> ' + Utils.escapeHtml(data.topicTitle) + '</a>';
+                footerRightHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
+                    '<i class="fa-regular fa-message-dots" aria-hidden="true"></i>' +
+                    '<span class="sr-only">Go to topic: ' + Utils.escapeHtml(data.topicTitle) + '</span>' +
+                    '</button>';
             }
             if (data.forumLink) {
-                footerLeftHtml += '<a href="' + Utils.escapeHtml(data.forumLink) + '" class="post-info-link" title="Go to forum"><i class="fa-regular fa-folder" aria-hidden="true"></i> ' + Utils.escapeHtml(data.forumName) + '</a>';
+                footerRightHtml += '<button class="action-icon member-forum-link" title="Go to forum" aria-label="Go to forum" data-forum-url="' + Utils.escapeHtml(data.forumLink) + '">' +
+                    '<i class="fa-regular fa-folder" aria-hidden="true"></i>' +
+                    '<span class="sr-only">Go to forum: ' + Utils.escapeHtml(data.forumName) + '</span>' +
+                    '</button>';
             }
-            footerLeftHtml += '</div>';
         }
 
         // Build user stats: conditionally include reputation
@@ -918,8 +923,8 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 signatureHtml +
             '</div>' +
             '<footer class="post-footer">' +
-                '<div class="post-footer-left">' + footerLeftHtml + '</div>' +
                 '<div class="post-reactions">' + likeButton + reactionsHtml + '</div>' +
+                footerRightHtml +
                 ipHtml +
             '</footer>' +
         '</article>';
@@ -973,7 +978,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // EVENT HANDLERS (unchanged except added null checks for missing buttons)
+    // EVENT HANDLERS
     // ============================================================================
     function handleAvatarClick(pid) {
         var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
@@ -1132,6 +1137,23 @@ var ForumPostsModule = (function(Utils, EventBus) {
         document.addEventListener('click', function(e) {
             var btn = e.target.closest('.action-icon[data-action="report"]');
             if (btn) { e.preventDefault(); var pid = btn.getAttribute('data-pid'); if (pid) handleReport(pid); }
+        });
+        // Member posts: topic and forum buttons
+        document.addEventListener('click', function(e) {
+            var topicBtn = e.target.closest('.member-topic-link');
+            if (topicBtn) {
+                e.preventDefault();
+                var url = topicBtn.getAttribute('data-topic-url');
+                if (url) window.location.href = url;
+            }
+        });
+        document.addEventListener('click', function(e) {
+            var forumBtn = e.target.closest('.member-forum-link');
+            if (forumBtn) {
+                e.preventDefault();
+                var url = forumBtn.getAttribute('data-forum-url');
+                if (url) window.location.href = url;
+            }
         });
         document.addEventListener('click', function(e) {
             var likeBtn = e.target.closest('.like-btn');

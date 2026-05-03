@@ -1,19 +1,21 @@
 /*============================================
- midnight emerald skin - forum modernized css
- optimized & mathematically perfected with φ(1.618)
- essential styles - modern posts edition
- ACCESSIBILITY ENHANCED (v2.0)
- ADDED: Group-specific avatar borders & badges (posts + modal)
+   midnight emerald skin - forum modernized css
+   optimized & mathematically perfected with φ(1.618)
+   essential styles - modern posts edition
+   ACCESSIBILITY ENHANCED (v2.0)
+   ADDED: Group-specific avatar borders & badges (posts + modal)
 ============================================*/
 
-/*============================================
- 1. CSS RESET & BASE NORMALIZATION
-============================================*/
-*, *::before, *::after {
+/*--------------------------------------------
+   1. CSS RESET & BASE NORMALIZATION
+--------------------------------------------*/
+*,
+*::before,
+*::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    outline:none;
+    outline: none;
 }
 
 html {
@@ -24,7 +26,7 @@ html {
     scrollbar-width: thin;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizelegibility
+    text-rendering: optimizelegibility;
 }
 
 body {
@@ -35,12 +37,12 @@ body {
     line-height: 1.618;
     margin: 0;
     padding: 0;
-    min-height: 100vh
+    min-height: 100vh;
 }
 
-/*============================================
- 2. CSS VARIABLES & THEMES
-============================================*/
+/*--------------------------------------------
+   2. CSS VARIABLES & THEMES
+--------------------------------------------*/
 :root {
     /* Golden ratio constants */
     --phi: 1.618;
@@ -51,26 +53,26 @@ body {
     /* Primary Colors - Emerald greens */
     --primary-color: #059669;
     --primary-dark: #047857;
-    --primary-light: #10B981;
+    --primary-light: #10b981;
 
     /* Accent Colors */
-    --secondary-color: #7C3AED;
-    --accent-color: #0EA5E9;
-    --success-color: #10B981;
-    --warning-color: #F59E0B;
-    --danger-color: #DC2626;
+    --secondary-color: #7c3aed;
+    --accent-color: #0ea5e9;
+    --success-color: #10b981;
+    --warning-color: #f59e0b;
+    --danger-color: #dc2626;
 
     /* Theme Colors - Dark Mode (Default) */
     --bg-color: #111827;
-    --surface-color: #1F2937;
+    --surface-color: #1f2937;
     --surface-light: #374151;
     --border-color: rgba(255, 255, 255, 0.1);
 
     /* Text Colors */
-    --text-primary: #F9FAFB;
-    --text-secondary: #D1D5DB;
-    --text-tertiary: #6B7280;
-    --text-muted: #4B5563;
+    --text-primary: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-tertiary: #6b7280;
+    --text-muted: #4b5563;
 
     /* Interactive States */
     --hover-color: rgba(255, 255, 255, 0.05);
@@ -78,15 +80,15 @@ body {
     --focus-ring: rgba(5, 150, 105, 0.3);
 
     /* Role colors */
-    --admin-color: #DC2626;
-    --global-mod-color: #06B6D4;
-    --mod-color: #8B5CF6;
-    --dev-color: #0EA5E9;
+    --admin-color: #dc2626;
+    --global-mod-color: #06b6d4;
+    --mod-color: #8b5cf6;
+    --dev-color: #0ea5e9;
     --member-color: #059669;
-    --guest-color: #6B7280;
-    --founder-color: #F59E0B;
-    --game-dev-color: #3B82F6;
-    --fan-color: #EC4899;
+    --guest-color: #6b7280;
+    --founder-color: #f59e0b;
+    --game-dev-color: #3b82f6;
+    --fan-color: #ec4899;
 
     /* Shadows - Golden ratio progression */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -144,14 +146,14 @@ body {
 
 /* Emerald Light theme */
 [data-theme="emerald-light"] {
-    --bg-color: #FDFDFD;
-    --surface-color: #FFFFFF;
-    --surface-light: #F3F4F6;
+    --bg-color: #fdfdfd;
+    --surface-color: #ffffff;
+    --surface-light: #f3f4f6;
     --border-color: rgba(0, 0, 0, 0.08);
     --text-primary: #111827;
-    --text-secondary: #4B5563;
-    --text-tertiary: #6B7280;
-    --text-muted: #9CA3AF;
+    --text-secondary: #4b5563;
+    --text-tertiary: #6b7280;
+    --text-muted: #9ca3af;
     --hover-color: rgba(0, 0, 0, 0.05);
     --active-color: rgba(0, 0, 0, 0.1);
     --focus-ring: rgba(5, 150, 105, 0.2);
@@ -162,71 +164,117 @@ body {
     --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.18);
 }
 
-/*============================================
- 3. FONT FACE DECLARATIONS
-============================================*/
+/*--------------------------------------------
+   3. FONT FACE DECLARATIONS
+--------------------------------------------*/
 @font-face {
-  font-family: 'Font Awesome 6 Pro';
-  src: local('Font Awesome 6 Pro'), local('FontAwesome6Pro'),
-       url(https://res.cloudinary.com/dbdf6gwgo/raw/upload/v1760194773/forum/fonts/Font%20Awesome%206/fa-regular-400_lbdg1o.woff2) format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  size-adjust: 100%;
-  descent-override: 0%;
-  ascent-override: 100%;
-  line-gap-override: 0%;
-  unicode-range: u+f000-ffff;
-}
-@font-face {
-  font-family: 'Font Awesome 6 Pro';
-  src: local('Font Awesome 6 Pro Brands'), local('FontAwesome6Pro-Brands'),
-       url(https://res.cloudinary.com/dbdf6gwgo/raw/upload/v1760269930/forum/fonts/Font%20Awesome%206/fa-brands-400_zftgmi.woff2) format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  size-adjust: 100%;
-  descent-override: 0%;
-  ascent-override: 100%;
-  line-gap-override: 0%;
-  unicode-range: u+f000-ffff;
-}
-@font-face {
-  font-family: 'Font Awesome 6 Pro';
-  src: local('Font Awesome 6 Pro Solid'), local('FontAwesome6Pro-Solid'),
-       url(https://res.cloudinary.com/dbdf6gwgo/raw/upload/v1760270628/forum/fonts/Font%20Awesome%206/fa-solid-900_ddwomm.woff2) format("woff2");
-  font-weight: 900;
-  font-style: normal;
-  font-display: swap;
-  size-adjust: 100%;
-  descent-override: 0%;
-  ascent-override: 100%;
-  line-gap-override: 0%;
-  unicode-range: u+f000-ffff;
-}
-@font-face {
-  font-family: 'Bree Serif';
-  src: local('Bree Serif'), local('BreeSerif-Regular'),
-       url('https://fonts.gstatic.com/s/breeserif/v17/4UaHrEJCrhhnVA3DgluAx63j5pN1MwI.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
+    font-family: 'Font Awesome 6 Pro';
+    src: local('Font Awesome 6 Pro'), local('FontAwesome6Pro'),
+        url(https://res.cloudinary.com/dbdf6gwgo/raw/upload/v1760194773/forum/fonts/Font%20Awesome%206/fa-regular-400_lbdg1o.woff2)
+        format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    size-adjust: 100%;
+    descent-override: 0%;
+    ascent-override: 100%;
+    line-gap-override: 0%;
+    unicode-range: u+f000-ffff;
 }
 
-/*============================================
- 4. HEADINGS & EMOJIS
-============================================*/
-h1, h2, h3, h4, h5, h6 {
+@font-face {
+    font-family: 'Font Awesome 6 Pro';
+    src: local('Font Awesome 6 Pro Brands'), local('FontAwesome6Pro-Brands'),
+        url(https://res.cloudinary.com/dbdf6gwgo/raw/upload/v1760269930/forum/fonts/Font%20Awesome%206/fa-brands-400_zftgmi.woff2)
+        format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    size-adjust: 100%;
+    descent-override: 0%;
+    ascent-override: 100%;
+    line-gap-override: 0%;
+    unicode-range: u+f000-ffff;
+}
+
+@font-face {
+    font-family: 'Font Awesome 6 Pro';
+    src: local('Font Awesome 6 Pro Solid'), local('FontAwesome6Pro-Solid'),
+        url(https://res.cloudinary.com/dbdf6gwgo/raw/upload/v1760270628/forum/fonts/Font%20Awesome%206/fa-solid-900_ddwomm.woff2)
+        format('woff2');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+    size-adjust: 100%;
+    descent-override: 0%;
+    ascent-override: 100%;
+    line-gap-override: 0%;
+    unicode-range: u+f000-ffff;
+}
+
+@font-face {
+    font-family: 'Bree Serif';
+    src: local('Bree Serif'), local('BreeSerif-Regular'),
+        url('https://fonts.gstatic.com/s/breeserif/v17/4UaHrEJCrhhnVA3DgluAx63j5pN1MwI.woff2')
+        format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+/*--------------------------------------------
+   4. BASE ELEMENTS (Headings, Emojis, Links)
+--------------------------------------------*/
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-family: var(--font-heading);
     font-weight: 400;
 }
 
-h1 .twemoji { height: 1.1em; width: 1.1em; vertical-align: -0.18em; margin: 0 0.08em; }
-h2 .twemoji { height: 1.15em; width: 1.15em; vertical-align: -0.2em; margin: 0 0.06em; }
-h3 .twemoji { height: 1.2em; width: 1.2em; vertical-align: -0.22em; margin: 0 0.04em; }
-h4 .twemoji { height: 1.25em; width: 1.25em; vertical-align: -0.25em; margin: 0 0.02em; }
-h5 .twemoji { height: 1.3em; width: 1.3em; vertical-align: -0.28em; margin: 0; }
-h6 .twemoji { height: 1.35em; width: 1.35em; vertical-align: -0.3em; }
+h1 .twemoji {
+    height: 1.1em;
+    width: 1.1em;
+    vertical-align: -0.18em;
+    margin: 0 0.08em;
+}
+
+h2 .twemoji {
+    height: 1.15em;
+    width: 1.15em;
+    vertical-align: -0.2em;
+    margin: 0 0.06em;
+}
+
+h3 .twemoji {
+    height: 1.2em;
+    width: 1.2em;
+    vertical-align: -0.22em;
+    margin: 0 0.04em;
+}
+
+h4 .twemoji {
+    height: 1.25em;
+    width: 1.25em;
+    vertical-align: -0.25em;
+    margin: 0 0.02em;
+}
+
+h5 .twemoji {
+    height: 1.3em;
+    width: 1.3em;
+    vertical-align: -0.28em;
+    margin: 0;
+}
+
+h6 .twemoji {
+    height: 1.35em;
+    width: 1.35em;
+    vertical-align: -0.3em;
+}
 
 .twemoji {
     height: 1.25em;
@@ -241,9 +289,6 @@ h6 .twemoji { height: 1.35em; width: 1.35em; vertical-align: -0.3em; }
     vertical-align: middle;
 }
 
-/*============================================
- 5. BASE ELEMENTS
-============================================*/
 a {
     color: var(--primary-color);
     text-decoration: none;
@@ -278,22 +323,23 @@ img {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/*============================================
- 6. LAYOUT CONTAINERS
-============================================*/
+/*--------------------------------------------
+   5. LAYOUT CONTAINERS
+--------------------------------------------*/
 #modern-forum-wrapper {
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 var(--space-md);
 }
 
-#modern-posts-container {
+#modern-posts-container,
+#modern-summary-container {
     display: block;
 }
 
-/*============================================
- 7. MODERN POST CARD STYLES
-============================================*/
+/*--------------------------------------------
+   6. MODERN POST CARD STYLES
+--------------------------------------------*/
 /* Card container */
 .post-card {
     background-color: var(--surface-color);
@@ -301,7 +347,8 @@ img {
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     margin-bottom: var(--space-lg);
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.2s ease;
     overflow: hidden;
     will-change: transform;
 }
@@ -350,7 +397,8 @@ img {
 }
 
 /* Action buttons */
-.post-actions, .post-member-actions {
+.post-actions,
+.post-member-actions {
     display: flex;
     gap: var(--space-sm);
     align-items: center;
@@ -419,9 +467,9 @@ img {
     border: 2px solid var(--primary-color);
     display: block;
     cursor: pointer;
-    transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), 
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+    transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1),
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .avatar-circle:hover {
@@ -439,16 +487,18 @@ img {
     font-family: 'Quicksand', 'Bree Serif', system-ui, sans-serif;
     font-weight: 600;
     color: white;
-    background-color: var(--primary-color); /* will be overwritten inline */
+    background-color: var(--primary-color);
+    /* will be overwritten inline */
     border: 2px solid var(--primary-color);
     cursor: pointer;
-    transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), 
-                box-shadow 0.2s ease,
-                border-color 0.2s ease;
+    transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1),
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
     font-size: calc(60px * 0.618);
 }
 
-.initial-avatar:hover, .modal-initial-avatar:hover {
+.initial-avatar:hover,
+.modal-initial-avatar:hover {
     transform: scale(1.02);
     box-shadow: 0 0 0 2px var(--primary-color), 0 4px 12px rgba(0, 0, 0, 0.2);
     border-color: var(--primary-light);
@@ -462,21 +512,25 @@ img {
     height: 14px;
     border-radius: 50%;
     border: 2px solid var(--surface-color);
-    background: #6B7280;
+    background: #6b7280;
     transition: background 0.2s;
 }
+
 .status-dot.online {
-    background: #10B981;
-    box-shadow: 0 0 0 1px rgba(16,185,129,0.3);
+    background: #10b981;
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
 }
+
 .status-dot.offline {
-    background: #6B7280;
+    background: #6b7280;
 }
+
 .status-dot.idle {
-    background: #F59E0B;
+    background: #f59e0b;
 }
+
 .status-dot.dnd {
-    background: #DC2626;
+    background: #dc2626;
 }
 
 /* Optional hover tooltip for status dot */
@@ -515,7 +569,7 @@ img {
 }
 
 .user-name:hover {
-    color: var(--primary-light, #10B981);
+    color: var(--primary-light);
     text-decoration: underline;
 }
 
@@ -537,30 +591,36 @@ img {
 }
 
 .role-badge.admin {
-    background: linear-gradient(135deg, #DC2626, #B91C1C);
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
 }
+
 .role-badge.moderator {
-    background: #8B5CF6;
+    background: #8b5cf6;
 }
+
 .role-badge.developer {
-    background: #0EA5E9;
+    background: #0ea5e9;
 }
+
 .role-badge.member {
     background: var(--primary-color);
 }
 
-/* NEW: Group-specific badges */
+/* Group-specific badges */
 .role-badge.founder {
-    background: linear-gradient(135deg, #F59E0B, #D97706) !important;
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
 }
+
 .role-badge.global-moderator {
-    background: linear-gradient(135deg, #06B6D4, #0891B2) !important;
+    background: linear-gradient(135deg, #06b6d4, #0891b2) !important;
 }
+
 .role-badge.game-dev {
-    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
 }
+
 .role-badge.fan {
-    background: linear-gradient(135deg, #EC4899, #BE185D) !important;
+    background: linear-gradient(135deg, #ec4899, #be185d) !important;
 }
 
 /* User stats grid */
@@ -579,7 +639,10 @@ img {
     padding: 0;
 }
 
-.user-rank i, .user-posts i, .user-reputation i, .user-joined i {
+.user-rank i,
+.user-posts i,
+.user-reputation i,
+.user-joined i {
     color: var(--primary-light);
 }
 
@@ -681,7 +744,8 @@ img {
     transform: translateY(-1px);
 }
 
-.reaction-count, .like-count {
+.reaction-count,
+.like-count {
     background: rgba(5, 150, 105, 0.15);
     border-radius: 30px;
     padding: 0.1rem 0.5rem;
@@ -695,52 +759,57 @@ img {
     color: var(--text-tertiary);
 }
 
-/*============================================
- 7b. GROUP-SPECIFIC AVATAR BORDERS (POSTS)
-============================================*/
+/*--------------------------------------------
+   6b. GROUP-SPECIFIC AVATAR BORDERS (POSTS)
+--------------------------------------------*/
 .post-card.group-founder .avatar-circle,
 .post-card.group-founder .initial-avatar {
-    border-color: #F59E0B !important;
+    border-color: #f59e0b !important;
 }
+
 .post-card.group-founder .avatar-circle:hover,
 .post-card.group-founder .initial-avatar:hover {
-    box-shadow: 0 0 0 2px #F59E0B, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #f59e0b, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .post-card.group-administrator .avatar-circle,
 .post-card.group-administrator .initial-avatar {
-    border-color: #DC2626 !important;
+    border-color: #dc2626 !important;
 }
+
 .post-card.group-administrator .avatar-circle:hover,
 .post-card.group-administrator .initial-avatar:hover {
-    box-shadow: 0 0 0 2px #DC2626, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #dc2626, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .post-card.group-global-moderator .avatar-circle,
 .post-card.group-global-moderator .initial-avatar {
-    border-color: #06B6D4 !important;
+    border-color: #06b6d4 !important;
 }
+
 .post-card.group-global-moderator .avatar-circle:hover,
 .post-card.group-global-moderator .initial-avatar:hover {
-    box-shadow: 0 0 0 2px #06B6D4, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #06b6d4, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .post-card.group-game-dev .avatar-circle,
 .post-card.group-game-dev .initial-avatar {
-    border-color: #3B82F6 !important;
+    border-color: #3b82f6 !important;
 }
+
 .post-card.group-game-dev .avatar-circle:hover,
 .post-card.group-game-dev .initial-avatar:hover {
-    box-shadow: 0 0 0 2px #3B82F6, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #3b82f6, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .post-card.group-fan .avatar-circle,
 .post-card.group-fan .initial-avatar {
-    border-color: #EC4899 !important;
+    border-color: #ec4899 !important;
 }
+
 .post-card.group-fan .avatar-circle:hover,
 .post-card.group-fan .initial-avatar:hover {
-    box-shadow: 0 0 0 2px #EC4899, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #ec4899, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .post-card.group-member .avatar-circle,
@@ -748,9 +817,9 @@ img {
     border-color: var(--primary-color) !important;
 }
 
-/*============================================
- 8. EMBEDDED LINK STYLES
-============================================*/
+/*--------------------------------------------
+   7. EMBEDDED LINK STYLES (with responsive)
+--------------------------------------------*/
 .modern-embedded-link {
     background: var(--surface-color);
     border: 1px solid var(--border-color);
@@ -925,7 +994,7 @@ img {
     display: block;
 }
 
-/* Desktop grid layout for embedded links */
+/* Responsive: Desktop grid layout for embedded links */
 @media (min-width: 48.0625em) {
     .modern-embedded-link .embedded-link-container {
         display: grid;
@@ -933,11 +1002,13 @@ img {
         grid-template-rows: auto;
         min-height: 140px;
     }
+
     .modern-embedded-link .embedded-link-image {
         grid-column: 1;
         width: 100%;
         height: 100%;
     }
+
     .modern-embedded-link .embedded-link-content {
         grid-column: 2;
         width: 100%;
@@ -947,57 +1018,64 @@ img {
     }
 }
 
-/* Tablet embedded link layout */
+/* Responsive: Tablet */
 @media (max-width: 48em) {
     .modern-embedded-link .embedded-link-container {
         flex-direction: column;
         min-height: auto;
     }
+
     .modern-embedded-link .embedded-link-image {
         flex: 0 0 140px;
         width: 100%;
     }
+
     .modern-embedded-link .embedded-link-image img {
         position: relative;
         height: 140px;
     }
+
     .modern-embedded-link .embedded-link-content {
         padding: var(--pad-4) var(--pad-5);
         width: 100%;
         flex: 1 1 auto;
     }
+
     .modern-embedded-link .embedded-link-title {
         font-size: var(--text-sm);
         margin-bottom: var(--space-xs);
     }
+
     .modern-embedded-link .embedded-link-description {
         font-size: var(--text-xs);
         margin-bottom: var(--space-xs);
     }
 }
 
-/* Mobile embedded link layout */
+/* Responsive: Mobile */
 @media (max-width: 30em) {
     .modern-embedded-link .embedded-link-image {
         flex: 0 0 100px;
     }
+
     .modern-embedded-link .embedded-link-image img {
         height: 100px;
     }
+
     .modern-embedded-link .embedded-link-content {
         padding: var(--pad-3) var(--pad-4);
         width: 100%;
     }
+
     .modern-embedded-link .embedded-link-title {
         font-size: var(--text-sm);
         margin-bottom: var(--pad-1);
     }
 }
 
-/*============================================
- 9. MODERN LIKES MODAL - ACCESSIBILITY ENHANCED
-============================================*/
-
+/*--------------------------------------------
+   8. MODERN LIKES MODAL (Accessibility Enhanced)
+--------------------------------------------*/
 /* Scroll lock utility (applied via JS) */
 .modal-scrollbar-measure {
     position: absolute;
@@ -1013,7 +1091,9 @@ body.modal-open {
 }
 
 /* Modal overlay */
-.modern-modal-overlay, .modern-report-overlay, .modern-report-notify-overlay {
+.modern-modal-overlay,
+.modern-report-overlay,
+.modern-report-notify-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -1028,8 +1108,10 @@ body.modal-open {
 }
 
 /* Modal container - fully ARIA compliant */
-.modern-likes-modal, .modern-report-container, .modern-report-notify-container {
-    background: var(--surface-color, #1F2937);
+.modern-likes-modal,
+.modern-report-container,
+.modern-report-notify-container {
+    background: var(--surface-color, #1f2937);
     border-radius: var(--radius-lg, 13px);
     max-width: 480px;
     width: 90%;
@@ -1042,33 +1124,44 @@ body.modal-open {
     flex-direction: column;
     outline: none;
 }
+
 .modern-likes-modal:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
 }
 
 /* Modal header */
-.modern-modal-header, .report-modal-header, .notify-modal-header {
+.modern-modal-header,
+.report-modal-header,
+.notify-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
-    background: var(--surface-color, #1F2937);
+    background: var(--surface-color, #1f2937);
     flex-shrink: 0;
 }
 
-.modern-modal-title, .report-modal-title, .notify-modal-title  {
+.modern-modal-title,
+.report-modal-title,
+.notify-modal-title {
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
-.modern-modal-title i, .report-modal-title i, .notify-modal-title i {
-    color: var(--primary-light, #10B981);
+
+.modern-modal-title i,
+.report-modal-title i,
+.notify-modal-title i {
+    color: var(--primary-light, #10b981);
     font-size: 1rem;
 }
-.modern-modal-title h3, .report-modal-title h3, .notify-modal-title h3 {
-    color: var(--text-primary, #F9FAFB);
+
+.modern-modal-title h3,
+.report-modal-title h3,
+.notify-modal-title h3 {
+    color: var(--text-primary, #f9fafb);
     margin: 0;
 }
 
@@ -1078,22 +1171,27 @@ body.modal-open {
     padding: 0.125rem 0.5rem;
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--primary-light, #10B981);
+    color: var(--primary-light, #10b981);
 }
 
-.modern-modal-close, .report-modal-close, .notify-modal-close {
+.modern-modal-close,
+.report-modal-close,
+.notify-modal-close {
     background: transparent;
     border: none;
-    color: var(--text-tertiary, #6B7280);
+    color: var(--text-tertiary, #6b7280);
     cursor: pointer;
     font-size: 1.25rem;
     padding: 0.25rem;
     border-radius: 6px;
     transition: all 0.2s;
 }
-.modern-modal-close:hover, .report-modal-close:hover, .notify-modal-close:hover {
+
+.modern-modal-close:hover,
+.report-modal-close:hover,
+.notify-modal-close:hover {
     background: var(--hover-color, rgba(255, 255, 255, 0.05));
-    color: var(--text-primary, #F9FAFB);
+    color: var(--text-primary, #f9fafb);
     transform: rotate(90deg);
 }
 
@@ -1101,14 +1199,17 @@ body.modal-open {
 .modern-likes-list {
     flex: 1;
     overflow-y: auto;
-    background: var(--surface-color, #1F2937);
+    background: var(--surface-color, #1f2937);
 }
+
 .modern-likes-list::-webkit-scrollbar {
     width: 6px;
 }
+
 .modern-likes-list::-webkit-scrollbar-track {
     background: transparent;
 }
+
 .modern-likes-list::-webkit-scrollbar-thumb {
     background: var(--surface-light, #374151);
     border-radius: 20px;
@@ -1137,16 +1238,18 @@ body.modal-open {
     transition: background 0.2s;
     cursor: pointer;
 }
+
 .modern-like-item:hover {
     background: var(--hover-color, rgba(255, 255, 255, 0.05));
 }
+
 .modern-like-item:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: -2px;
     background: var(--hover-color);
 }
 
-/* Avatar wrapper and status dot for modal (already present) */
+/* Avatar wrapper and status dot for modal */
 .modern-like-avatar-wrapper {
     position: relative;
     flex-shrink: 0;
@@ -1174,12 +1277,13 @@ body.modal-open {
     font-family: 'Quicksand', 'Bree Serif', system-ui, sans-serif;
     font-weight: 600;
     color: white;
-    background-color: var(--primary-color); /* will be overwritten inline */
+    background-color: var(--primary-color);
+    /* will be overwritten inline */
     border: 2px solid var(--primary-color);
     cursor: pointer;
-    transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1), 
-                box-shadow 0.2s ease,
-                border-color 0.2s ease;
+    transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1),
+        box-shadow 0.2s ease,
+        border-color 0.2s ease;
     font-size: calc(48px * 0.618);
 }
 
@@ -1190,21 +1294,25 @@ body.modal-open {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 2px solid var(--surface-color, #1F2937);
+    border: 2px solid var(--surface-color, #1f2937);
     transition: background 0.2s;
 }
+
 .modern-status-dot.online {
-    background: #10B981;
+    background: #10b981;
     box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
 }
+
 .modern-status-dot.offline {
-    background: #6B7280;
+    background: #6b7280;
 }
+
 .modern-status-dot.idle {
-    background: #F59E0B;
+    background: #f59e0b;
 }
+
 .modern-status-dot.dnd {
-    background: #DC2626;
+    background: #dc2626;
 }
 
 .modern-status-dot:hover::after {
@@ -1239,13 +1347,14 @@ body.modal-open {
 
 .modern-like-name {
     font-weight: 600;
-    color: var(--text-primary, #F9FAFB);
+    color: var(--text-primary, #f9fafb);
     font-size: 0.95rem;
     transition: color 0.2s;
     cursor: pointer;
 }
+
 .modern-like-name:hover {
-    color: var(--primary-light, #10B981);
+    color: var(--primary-light, #10b981);
     text-decoration: underline;
 }
 
@@ -1260,17 +1369,49 @@ body.modal-open {
     cursor: default;
 }
 
-.role-founder { background: linear-gradient(135deg, #F59E0B, #D97706); }
-.role-administrator { background: linear-gradient(135deg, #DC2626, #B91C1C); }
-.role-global-mod { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
-.role-moderator { background: linear-gradient(135deg, #8B5CF6, #7C3AED); }
-.role-developer { background: linear-gradient(135deg, #0EA5E9, #0284C7); }
-.role-game-dev { background: linear-gradient(135deg, #3B82F6, #2563EB); }
-.role-fan { background: linear-gradient(135deg, #EC4899, #BE185D); }
-.role-premium { background: linear-gradient(135deg, #D946EF, #C026D3); }
-.role-vip { background: linear-gradient(135deg, #F97316, #EA580C); }
-.role-member { background: linear-gradient(135deg, #059669, #047857); }
-.role-banned { background: linear-gradient(135deg, #4B5563, #374151); }
+.role-founder {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.role-administrator {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.role-global-mod {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.role-moderator {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.role-developer {
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+}
+
+.role-game-dev {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.role-fan {
+    background: linear-gradient(135deg, #ec4899, #be185d);
+}
+
+.role-premium {
+    background: linear-gradient(135deg, #d946ef, #c026d3);
+}
+
+.role-vip {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+}
+
+.role-member {
+    background: linear-gradient(135deg, #059669, #047857);
+}
+
+.role-banned {
+    background: linear-gradient(135deg, #4b5563, #374151);
+}
 
 /* User stats in modal */
 .modern-like-stats {
@@ -1279,87 +1420,99 @@ body.modal-open {
     gap: 1rem;
     margin-top: 0.25rem;
     font-size: 0.7rem;
-    color: var(--text-tertiary, #6B7280);
+    color: var(--text-tertiary, #6b7280);
 }
+
 .modern-like-stats i {
     margin-right: 0.25rem;
     width: 12px;
-    color: var(--primary-light, #10B981);
+    color: var(--primary-light, #10b981);
 }
 
 /* Loading & empty states */
-.modern-loading, .modern-empty {
+.modern-loading,
+.modern-empty {
     text-align: center;
     padding: 3rem;
-    color: var(--text-tertiary, #6B7280);
+    color: var(--text-tertiary, #6b7280);
 }
-.modern-loading i, .modern-empty i {
+
+.modern-loading i,
+.modern-empty i {
     font-size: 2rem;
     margin-bottom: 0.5rem;
     display: block;
 }
 
 /* Modal footer */
-.modern-modal-footer, .report-modal-footer, .notify-modal-footer {
+.modern-modal-footer,
+.report-modal-footer,
+.notify-modal-footer {
     padding: 0.75rem 1.5rem;
     border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
     background: var(--bg-color, #111827);
     font-size: 0.7rem;
-    color: var(--text-tertiary, #6B7280);
+    color: var(--text-tertiary, #6b7280);
     text-align: center;
     flex-shrink: 0;
 }
+
 .modern-modal-footer i {
     margin-right: 0.25rem;
     font-size: 0.65rem;
 }
 
-/*============================================
- 9b. MODAL GROUP-SPECIFIC AVATAR BORDERS
-============================================*/
+/*--------------------------------------------
+   8b. MODAL GROUP-SPECIFIC AVATAR BORDERS
+--------------------------------------------*/
 .modern-like-item.group-founder .modern-like-avatar,
 .modern-like-item.group-founder .modal-initial-avatar {
-    border-color: #F59E0B !important;
+    border-color: #f59e0b !important;
 }
+
 .modern-like-item.group-founder .modern-like-avatar:hover,
 .modern-like-item.group-founder .modal-initial-avatar:hover {
-    box-shadow: 0 0 0 2px #F59E0B, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #f59e0b, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .modern-like-item.group-administrator .modern-like-avatar,
 .modern-like-item.group-administrator .modal-initial-avatar {
-    border-color: #DC2626 !important;
+    border-color: #dc2626 !important;
 }
+
 .modern-like-item.group-administrator .modern-like-avatar:hover,
 .modern-like-item.group-administrator .modal-initial-avatar:hover {
-    box-shadow: 0 0 0 2px #DC2626, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #dc2626, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .modern-like-item.group-global-moderator .modern-like-avatar,
 .modern-like-item.group-global-moderator .modal-initial-avatar {
-    border-color: #06B6D4 !important;
+    border-color: #06b6d4 !important;
 }
+
 .modern-like-item.group-global-moderator .modern-like-avatar:hover,
 .modern-like-item.group-global-moderator .modal-initial-avatar:hover {
-    box-shadow: 0 0 0 2px #06B6D4, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #06b6d4, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .modern-like-item.group-game-dev .modern-like-avatar,
 .modern-like-item.group-game-dev .modal-initial-avatar {
-    border-color: #3B82F6 !important;
+    border-color: #3b82f6 !important;
 }
+
 .modern-like-item.group-game-dev .modern-like-avatar:hover,
 .modern-like-item.group-game-dev .modal-initial-avatar:hover {
-    box-shadow: 0 0 0 2px #3B82F6, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #3b82f6, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .modern-like-item.group-fan .modern-like-avatar,
 .modern-like-item.group-fan .modal-initial-avatar {
-    border-color: #EC4899 !important;
+    border-color: #ec4899 !important;
 }
+
 .modern-like-item.group-fan .modern-like-avatar:hover,
 .modern-like-item.group-fan .modal-initial-avatar:hover {
-    box-shadow: 0 0 0 2px #EC4899, 0 4px 12px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 2px #ec4899, 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .modern-like-item.group-member .modern-like-avatar,
@@ -1367,58 +1520,153 @@ body.modal-open {
     border-color: var(--primary-color) !important;
 }
 
-/*============================================
- 10. LOADING SHIMMER & UTILITIES
-============================================*/
+/*--------------------------------------------
+   9. LOADING SHIMMER & UTILITIES
+--------------------------------------------*/
 .modern-forum-wrapper:empty {
     min-height: 200px;
-    background: linear-gradient(90deg, var(--surface-color) 25%, var(--surface-light) 50%, var(--surface-color) 75%);
+    background: linear-gradient(90deg,
+            var(--surface-color) 25%,
+            var(--surface-light) 50%,
+            var(--surface-color) 75%);
     background-size: 200% 100%;
     animation: loading-shimmer 1.5s infinite;
     border-radius: var(--radius);
 }
 
 @keyframes loading-shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
 }
 
 /* Performance hint */
-img, .avatar-circle {
+img,
+.avatar-circle {
     content-visibility: auto;
 }
 
-/*============================================
- 11. RESPONSIVE STYLES (MOBILE FIRST)
-============================================*/
-@media (max-width: 680px) {
-    body { padding: 1rem; }
-    .user-area { flex-direction: column; align-items: center; text-align: center; }
-    .username-row { justify-content: center; }
-    .badge-container { justify-content: center; }
-    .user-stats-grid { justify-content: center; }
-    .post-footer-modern { flex-direction: column; align-items: flex-start; }
-    .topic-title { font-size: 1.4rem; }
-    .action-buttons-group { flex-wrap: wrap; justify-content: flex-end; }
+/*--------------------------------------------
+   10. SUMMARY MODERN HEADER (body#send)
+--------------------------------------------*/
+.summary-header.modern-section-header {
+    margin-bottom: var(--space-lg);
+    padding: var(--pad-4) var(--pad-6);
+    background: var(--surface-color);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
 }
 
-/*============================================
- 12. REDUCED MOTION PREFERENCE
-============================================*/
+.summary-header-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.summary-header-content i {
+    font-size: 1.4rem;
+    color: var(--primary-color);
+}
+
+.summary-header-content h3 {
+    font-family: var(--font-heading);
+    font-size: var(--text-lg);
+    font-weight: 500;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.summary-subtitle {
+    font-size: var(--text-sm);
+    font-weight: normal;
+    color: var(--text-tertiary);
+    margin-left: var(--space-xs);
+}
+
+/* Responsive: summary header */
+@media (max-width: 48em) {
+    .summary-header-content h3 {
+        font-size: var(--text-md);
+    }
+
+    .summary-subtitle {
+        display: block;
+        margin-left: 0;
+        font-size: var(--text-xs);
+    }
+}
+
+/*--------------------------------------------
+   11. CONSOLIDATED RESPONSIVE STYLES (680px)
+--------------------------------------------*/
+@media (max-width: 680px) {
+    body {
+        padding: 1rem;
+    }
+
+    .user-area {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .username-row {
+        justify-content: center;
+    }
+
+    .badge-container {
+        justify-content: center;
+    }
+
+    .user-stats-grid {
+        justify-content: center;
+    }
+
+    .post-footer-modern {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .topic-title {
+        font-size: 1.4rem;
+    }
+
+    .action-buttons-group {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+}
+
+/*--------------------------------------------
+   12. REDUCED MOTION PREFERENCE
+--------------------------------------------*/
 @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
         animation-duration: 0.01ms !important;
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
     }
 }
 
-/*============================================
- 13. MODAL ANIMATIONS
-============================================*/
+/*--------------------------------------------
+   13. MODAL ANIMATIONS
+--------------------------------------------*/
 @keyframes modalFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes modalSlideUp {
@@ -1426,46 +1674,30 @@ img, .avatar-circle {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
-/*WYSIWYG images*/
-.ve-content.color img:not(img[alt="fav"],img[src^="https://img.forumfree.net/html/emoticons/new/"],[class*=e1a-],img[alt$=":"],.res_tmb img,.emojione){
-    max-width: calc(100% - (2* 5px))!important;
+
+/*--------------------------------------------
+   14. WYSIWYG IMAGES OVERRIDE
+--------------------------------------------*/
+.ve-content.color img:not(img[alt="fav"],
+    img[src^="https://img.forumfree.net/html/emoticons/new/"],
+    [class*="e1a-"],
+    img[alt$=":"],
+    .res_tmb img,
+    .emojione) {
+    max-width: calc(100% - (2 * 5px)) !important;
 }
 
-/*============================================
- summary modern header(body#send)============================================ */
-.summary-header.modern-section-header {margin-bottom: var(--space-lg);
- padding: var(--pad-4) var(--pad-6);
- background: var(--surface-color);
- border-radius: var(--radius);
- border: 1px solid var(--border-color);
- box-shadow: var(--shadow-sm)}
-
-.summary-header-content {display: flex;
- align-items: center;
- gap: var(--space-sm)}
-
-.summary-header-content i {font-size: 1.4rem;
- color: var(--primary-color)}
-
-.summary-header-content h3 {font-family: var(--font-heading);
- font-size: var(--text-lg);
- font-weight: 500;
- margin: 0;
- color: var(--text-primary)}
-
-.summary-subtitle {font-size: var(--text-sm);
- font-weight: normal;
- color: var(--text-tertiary);
- margin-left: var(--space-xs)}
-
-@media(max-width: 48em) {.summary-header-content h3 {font-size: var(--text-md)}
- .summary-subtitle {display: block;
- margin-left: 0;
- font-size: var(--text-xs)}}
-
-.popup.pop_points, .forumfree-modal.\.report-modal-notify.Blocker.current, .ff-modal.modal.report-modal {visibility:hidden!important}
+/*--------------------------------------------
+   15. HIDE LEGACY POPUP ELEMENTS
+--------------------------------------------*/
+.popup.pop_points,
+.forumfree-modal\.report-modal-notify.Blocker.current,
+.ff-modal.modal.report-modal {
+    visibility: hidden !important;
+}

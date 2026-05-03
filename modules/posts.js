@@ -883,7 +883,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
             memberActionsHtml = '<div class="post-member-actions">';
  if (data.topicLink) {
     memberActionsHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
-        '<i class="fa-regular fa-message-dots" aria-hidden="true"></i>' +
+        '<i class="fa-regular fa-message" aria-hidden="true"></i>' +
         '</button>';
 }
 if (data.forumLink) {

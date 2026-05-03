@@ -350,7 +350,7 @@ img {
 }
 
 /* Action buttons */
-.post-actions {
+.post-actions, .post-member-actions {
     display: flex;
     gap: var(--space-sm);
     align-items: center;

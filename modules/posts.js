@@ -3,7 +3,8 @@
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
-// ADDED: Conditional action buttons (quote, edit, delete, report) based on original post availability
+// ADDED: Conditional action buttons (quote, edit, delete) based on original post availability
+// ALWAYS: Share and Report buttons (our custom features)
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
@@ -776,7 +777,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
             '</time>' +
             '</div>';
 
-        // Build action buttons conditionally based on original post capabilities
+        // Build action buttons conditionally (quote, edit, delete) but always share and report
         var actionsHtml = '';
         if (data.hasQuote) {
             actionsHtml += '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>';
@@ -786,9 +787,8 @@ var ForumPostsModule = (function(Utils, EventBus) {
         }
         // Share is always our custom feature
         actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
-        if (data.hasReport) {
-            actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
-        }
+        // Report button always included (plugin loads later but works)
+        actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
         if (data.hasDelete) {
             actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
         }
@@ -1094,11 +1094,11 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
             var editInfo = getEditInfo($post);
 
-            // Detect which action buttons exist in the original post
+            // Detect which action buttons exist in the original post (only quote, edit, delete)
             var hasQuote = !!$post.querySelector('a[href*="CODE=02"]');
             var hasEdit = !!$post.querySelector('a[href*="CODE=08"]');
             var hasDelete = !!($post.querySelector('a[href*="delete"]') || $post.querySelector('[onclick*="delete_post"]'));
-            var hasReport = !!($post.querySelector('.report_button') || $post.querySelector('a[href*="report"]'));
+            // Report button is always added (no detection needed)
 
             postsData.push({
                 postId: postId,
@@ -1126,8 +1126,8 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 // Action availability flags
                 hasQuote: hasQuote,
                 hasEdit: hasEdit,
-                hasDelete: hasDelete,
-                hasReport: hasReport
+                hasDelete: hasDelete
+                // hasReport is not used; report button always rendered
             });
             convertedPostIds.add(postId);
         }
@@ -1151,7 +1151,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars + group class + conditional actions)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars + group class + conditional actions, report always present)');
     }
 
     // ============================================================================

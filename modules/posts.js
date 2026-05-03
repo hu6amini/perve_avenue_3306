@@ -190,22 +190,29 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // Returns object describing avatar: either type: 'img' with url, or type: 'initial' with initial and bgColor
-    function getUserAvatarData(user, username, userId) {
-        if (user && user.avatar && isValidAvatarUrl(user.avatar)) {
-            var avatarUrl = user.avatar;
-            if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
-            if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
-                avatarUrl = avatarUrl.replace('http://', 'https://');
-            var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
-            if (optimized) return { type: 'img', url: optimized };
-        }
-        // Fallback to initial letter
-        var initial = username ? username.charAt(0).toUpperCase() : '?';
-        if (!initial.match(/[A-Z0-9]/i)) initial = '?';
-        var bgColor = getColorFromNickname(username, userId);
-        return { type: 'initial', initial: initial, bgColor: bgColor };
+function getUserAvatarData(user, username, userId) {
+    // Helper to detect default placeholder
+    function isDefaultAvatarUrl(url) {
+        if (!url) return false;
+        // Match both http/https and the exact path
+        return url.includes('style_images/default_avatar.png');
     }
 
+    if (user && user.avatar && isValidAvatarUrl(user.avatar) && !isDefaultAvatarUrl(user.avatar)) {
+        var avatarUrl = user.avatar;
+        if (avatarUrl.startsWith('//')) avatarUrl = 'https:' + avatarUrl;
+        if (avatarUrl.startsWith('http://') && window.location.protocol === 'https:')
+            avatarUrl = avatarUrl.replace('http://', 'https://');
+        var optimized = optimizeImageUrl(avatarUrl, CONFIG.AVATAR_SIZE, CONFIG.AVATAR_SIZE);
+        if (optimized) return { type: 'img', url: optimized };
+    }
+    // Fallback to initial letter
+    var initial = username ? username.charAt(0).toUpperCase() : '?';
+    if (!initial.match(/[A-Z0-9]/i)) initial = '?';
+    var bgColor = getColorFromNickname(username, userId);
+    return { type: 'initial', initial: initial, bgColor: bgColor };
+}
+    
     // ============================================================================
     // HELPER FUNCTIONS
     // ============================================================================

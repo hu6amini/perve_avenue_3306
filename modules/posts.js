@@ -4,7 +4,8 @@
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
 // ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
-// ADDED: Support for "member_posts" page – extract global user info from <h2 class="mtitle">
+// ADDED: Support for "member_posts" page – extract global user info from <h2 class="mtitle">, hide reputation
+// ADDED: Page restrictions – only runs on #topic, #send, #blog, and #search (with .topic.member_posts)
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
@@ -42,6 +43,22 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
     // Cache for user API data (MID -> user object)
     var userDataCache = new Map();
+
+    // ============================================================================
+    // PAGE VALIDATION
+    // ============================================================================
+    function isValidPage() {
+        var bodyId = document.body.id;
+        // Allowed pages: topic, send, blog
+        if (bodyId === 'topic' || bodyId === 'send' || bodyId === 'blog') {
+            return true;
+        }
+        // For search page, only run if .topic.member_posts exists
+        if (bodyId === 'search') {
+            return document.querySelector('.topic.member_posts') !== null;
+        }
+        return false;
+    }
 
     // ============================================================================
     // RELATIVE TIME & DATE PARSING
@@ -822,6 +839,14 @@ var ForumPostsModule = (function(Utils, EventBus) {
             actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
         }
 
+        // Build user stats: conditionally include reputation
+        var statsHtml = '<div class="user-rank"><i class="' + (data.rankIconClass || 'fa-medal fa-regular') + '" aria-hidden="true"></i> ' + (data.userTitle || 'Member') + '</div>' +
+            '<div class="user-posts"><i class="fa-regular fa-message"></i> ' + formatNumber(postCount) + ' posts</div>';
+        if (!data.isMemberPostsPage) {
+            statsHtml += '<div class="user-reputation"><i class="fa-regular fa-thumbs-up"></i> ' + formatNumber(reputation) + ' rep</div>';
+        }
+        statsHtml += '<div class="user-joined"><i class="fa-regular fa-user-plus"></i> ' + joinDateFormatted + '</div>';
+
         return '<article class="post-card ' + groupCssClass + '" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
                 '<div class="post-meta">' +
@@ -835,12 +860,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 '<div class="post-user-info">' +
                     '<div class="user-name" data-pid="' + data.postId + '">' + Utils.escapeHtml(username) + '</div>' +
                     '<div class="user-group"><span class="' + roleClass + '">' + Utils.escapeHtml(groupName) + '</span></div>' +
-                    '<div class="user-stats">' +
-                        '<div class="user-rank"><i class="' + (data.rankIconClass || 'fa-medal fa-regular') + '" aria-hidden="true"></i> ' + (data.userTitle || 'Member') + '</div>' +
-                        '<div class="user-posts"><i class="fa-regular fa-message"></i> ' + formatNumber(postCount) + ' posts</div>' +
-                        '<div class="user-reputation"><i class="fa-regular fa-thumbs-up"></i> ' + formatNumber(reputation) + ' rep</div>' +
-                        '<div class="user-joined"><i class="fa-regular fa-user-plus"></i> ' + joinDateFormatted + '</div>' +
-                    '</div>' +
+                    '<div class="user-stats">' + statsHtml + '</div>' +
                 '</div>' +
             '</div>' +
             '<div class="post-content">' +
@@ -1105,8 +1125,10 @@ var ForumPostsModule = (function(Utils, EventBus) {
         // ---------------- MEMBER POSTS PAGE DETECTION ----------------
         var globalMid = null;
         var globalUsername = null;
+        var isMemberPostsPage = false;
         var memberPostsHeader = document.querySelector('.topic.member_posts .mtitle b');
         if (memberPostsHeader) {
+            isMemberPostsPage = true;
             // Extract MID from class name (e.g., "user12252299") or from onclick
             var classNames = memberPostsHeader.className;
             var match = classNames.match(/user(\d+)/);
@@ -1187,7 +1209,8 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 relativeTime: relativeTime,
                 postDate: postDate,
                 postPermalink: postPermalink,
-                availableActions: availableActions
+                availableActions: availableActions,
+                isMemberPostsPage: isMemberPostsPage   // Pass flag to hide reputation
             });
             convertedPostIds.add(postId);
         }
@@ -1219,6 +1242,11 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // ============================================================================
     function initialize() {
         if (isInitialized) { console.log('[PostsModule] Already initialized'); return; }
+        // Only run on allowed pages
+        if (!isValidPage()) {
+            console.log('[PostsModule] Skipping – not a valid page (topic/send/blog or search with member_posts)');
+            return;
+        }
         console.log('[PostsModule] Initializing API-enhanced version with initial avatars...');
         convertAllPosts().catch(err => console.error('[PostsModule] Init error', err));
         isInitialized = true;

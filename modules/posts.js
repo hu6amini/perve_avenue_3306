@@ -6,6 +6,7 @@
 // ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
 // ADDED: Support for "member_posts" page – extract global user info from <h2 class="mtitle">, hide reputation, disable reactions
 // ADDED: Page restrictions – only runs on #topic, #send, #blog, and #search (with .topic.member_posts)
+// FIXED: Timestamp parsing on member_posts when title attribute is missing
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
@@ -1172,6 +1173,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
 
+            // --- FIX: extract post date from .when span (title attribute or text content) ---
             var whenSpan = $post.querySelector('.when');
             var postPermalink = null;
             var postDate = null;
@@ -1181,7 +1183,17 @@ var ForumPostsModule = (function(Utils, EventBus) {
                     postPermalink = anchor.getAttribute('href');
                 }
                 var title = whenSpan.getAttribute('title');
-                postDate = parseDateFromTitle(title);
+                if (title) {
+                    postDate = parseDateFromTitle(title);
+                } else {
+                    // No title attribute – try text content (member_posts)
+                    var text = whenSpan.textContent.trim();
+                    // Remove leading "Posted:" and any whitespace
+                    text = text.replace(/^Posted:\s*/i, '');
+                    if (text) {
+                        postDate = parseDateFromTitle(text);
+                    }
+                }
             }
             var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
 

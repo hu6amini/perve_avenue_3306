@@ -881,18 +881,16 @@ var ForumPostsModule = (function(Utils, EventBus) {
         var memberActionsHtml = '';
         if (data.isMemberPostsPage && (data.topicLink || data.forumLink)) {
             memberActionsHtml = '<div class="post-member-actions">';
-            if (data.topicLink) {
-                memberActionsHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
-                    '<i class="fa-regular fa-message" aria-hidden="true"></i>' +
-                    '<span class="sr-only">Go to topic: ' + Utils.escapeHtml(data.topicTitle) + '</span>' +
-                    '</button>';
-            }
-            if (data.forumLink) {
-                memberActionsHtml += '<button class="action-icon member-forum-link" title="Go to forum" aria-label="Go to forum" data-forum-url="' + Utils.escapeHtml(data.forumLink) + '">' +
-                    '<i class="fa-regular fa-folder" aria-hidden="true"></i>' +
-                    '<span class="sr-only">Go to forum: ' + Utils.escapeHtml(data.forumName) + '</span>' +
-                    '</button>';
-            }
+ if (data.topicLink) {
+    memberActionsHtml += '<button class="action-icon member-topic-link" title="Go to topic" aria-label="Go to topic" data-topic-url="' + Utils.escapeHtml(data.topicLink) + '">' +
+        '<i class="fa-regular fa-message-dots" aria-hidden="true"></i>' +
+        '</button>';
+}
+if (data.forumLink) {
+    memberActionsHtml += '<button class="action-icon member-forum-link" title="Go to forum" aria-label="Go to forum" data-forum-url="' + Utils.escapeHtml(data.forumLink) + '">' +
+        '<i class="fa-regular fa-folder" aria-hidden="true"></i>' +
+        '</button>';
+}
             memberActionsHtml += '</div>';
         }
 

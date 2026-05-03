@@ -4,7 +4,7 @@
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
 // ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
-// ADDED: Support for "member_posts" page – extract global user info from <h2 class="mtitle">, hide reputation
+// ADDED: Support for "member_posts" page – extract global user info from <h2 class="mtitle">, hide reputation, disable reactions
 // ADDED: Page restrictions – only runs on #topic, #send, #blog, and #search (with .topic.member_posts)
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
@@ -301,51 +301,51 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return { title: title || 'Member', iconClass: iconClass };
     }
 
-function getCleanContent($post) {
-    // Try normal post selector first
-    var contentTable = $post.querySelector('.right.Item table.color');
-    // Fallback for member_posts: direct table.color inside td.Item
-    if (!contentTable) {
-        contentTable = $post.querySelector('td.Item table.color');
-    }
-    if (!contentTable) return '';
-    
-    var contentClone = contentTable.cloneNode(true);
-    
-    // Remove <br> tags directly before .edit elements
-    var editSpans = contentClone.querySelectorAll('.edit');
-    for (var i = 0; i < editSpans.length; i++) {
-        var edit = editSpans[i];
-        var prev = edit.previousSibling;
-        while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') {
-            var toRemove = prev;
-            prev = prev.previousSibling;
-            toRemove.remove();
+    function getCleanContent($post) {
+        // Try normal post selector first
+        var contentTable = $post.querySelector('.right.Item table.color');
+        // Fallback for member_posts: direct table.color inside td.Item
+        if (!contentTable) {
+            contentTable = $post.querySelector('td.Item table.color');
         }
-    }
-    
-    var signatures = contentClone.querySelectorAll('.signature, .edit');
-    signatures.forEach(function(el) { if (el && el.remove) el.remove(); });
-    
-    var borders = contentClone.querySelectorAll('.bottomborder');
-    borders.forEach(function(el) { if (el && el.remove) el.remove(); });
-    
-    var breaks = contentClone.querySelectorAll('br');
-    breaks.forEach(function(br) {
-        var prev = br.previousElementSibling;
-        var next = br.nextElementSibling;
-        if ((next && next.classList && next.classList.contains('bottomborder')) ||
-            (prev && prev.classList && prev.classList.contains('bottomborder'))) {
-            if (br.remove) br.remove();
+        if (!contentTable) return '';
+        
+        var contentClone = contentTable.cloneNode(true);
+        
+        // Remove <br> tags directly before .edit elements
+        var editSpans = contentClone.querySelectorAll('.edit');
+        for (var i = 0; i < editSpans.length; i++) {
+            var edit = editSpans[i];
+            var prev = edit.previousSibling;
+            while (prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') {
+                var toRemove = prev;
+                prev = prev.previousSibling;
+                toRemove.remove();
+            }
         }
-    });
-    
-    var html = contentClone.innerHTML || '';
-    html = html.replace(/<p>\s*<\/p>/g, '');
-    html = html.trim();
-    html = transformEmbeddedLinks(html);
-    return html;
-}
+        
+        var signatures = contentClone.querySelectorAll('.signature, .edit');
+        signatures.forEach(function(el) { if (el && el.remove) el.remove(); });
+        
+        var borders = contentClone.querySelectorAll('.bottomborder');
+        borders.forEach(function(el) { if (el && el.remove) el.remove(); });
+        
+        var breaks = contentClone.querySelectorAll('br');
+        breaks.forEach(function(br) {
+            var prev = br.previousElementSibling;
+            var next = br.nextElementSibling;
+            if ((next && next.classList && next.classList.contains('bottomborder')) ||
+                (prev && prev.classList && prev.classList.contains('bottomborder'))) {
+                if (br.remove) br.remove();
+            }
+        });
+        
+        var html = contentClone.innerHTML || '';
+        html = html.replace(/<p>\s*<\/p>/g, '');
+        html = html.trim();
+        html = transformEmbeddedLinks(html);
+        return html;
+    }
 
     function getSignatureHtml($post) {
         var signature = $post.querySelector('.signature');
@@ -803,6 +803,8 @@ function getCleanContent($post) {
             reactionCount: data.reactionCount,
             reactions: data.reactions
         });
+        // Disable reactions on member posts page
+        if (data.isMemberPostsPage) reactionsHtml = '';
 
         var editHtml = '';
         if (data.editInfo && data.editInfo.relative) {
@@ -1216,7 +1218,7 @@ function getCleanContent($post) {
                 postDate: postDate,
                 postPermalink: postPermalink,
                 availableActions: availableActions,
-                isMemberPostsPage: isMemberPostsPage   // Pass flag to hide reputation
+                isMemberPostsPage: isMemberPostsPage   // Pass flag to hide reputation and reactions
             });
             convertedPostIds.add(postId);
         }

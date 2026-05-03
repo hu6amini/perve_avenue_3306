@@ -4,7 +4,7 @@
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
 // ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
-// ADDED: Support for "member_posts" page – extract global user info from <h2 class="mtitle">, hide reputation, disable reactions
+// ADDED: Support for "member_posts" page – extract global user info, hide reputation, disable reactions, add topic/forum links to footer
 // ADDED: Page restrictions – only runs on #topic, #send, #blog, and #search (with .topic.member_posts)
 // FIXED: Timestamp parsing on member_posts when title attribute is missing
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
@@ -445,6 +445,29 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
+    // MEMBER POSTS – EXTRACT TOPIC AND FORUM LINKS
+    // ============================================================================
+    function getMemberPostLinks($post) {
+        var rtSub = $post.querySelector('.rt.Sub');
+        if (!rtSub) return { topicLink: null, topicTitle: null, forumLink: null, forumName: null };
+        
+        var links = rtSub.querySelectorAll('a');
+        var topicLink = null, forumLink = null;
+        var topicTitle = '', forumName = '';
+        
+        if (links.length >= 1) {
+            topicLink = links[0].getAttribute('href');
+            topicTitle = links[0].textContent.trim();
+        }
+        if (links.length >= 2) {
+            forumLink = links[1].getAttribute('href');
+            forumName = links[1].textContent.trim();
+        }
+        
+        return { topicLink: topicLink, topicTitle: topicTitle, forumLink: forumLink, forumName: forumName };
+    }
+
+    // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)
     // ============================================================================
     function transformEmbeddedLinks(htmlContent) {
@@ -798,14 +821,17 @@ var ForumPostsModule = (function(Utils, EventBus) {
             '<i class="fa-regular fa-thumbs-up like-icon" aria-hidden="true"></i>';
         if (data.likes > 0) likeButton += '<span class="like-count like-count-display">' + data.likes + '</span>';
         likeButton += '</button>';
-        var reactionsHtml = generateReactionButtons({
-            postId: data.postId,
-            hasReactions: data.hasReactions,
-            reactionCount: data.reactionCount,
-            reactions: data.reactions
-        });
-        // Disable reactions on member posts page
-        if (data.isMemberPostsPage) reactionsHtml = '';
+        
+        // Reactions (disabled on member_posts)
+        var reactionsHtml = '';
+        if (!data.isMemberPostsPage) {
+            reactionsHtml = generateReactionButtons({
+                postId: data.postId,
+                hasReactions: data.hasReactions,
+                reactionCount: data.reactionCount,
+                reactions: data.reactions
+            });
+        }
 
         var editHtml = '';
         if (data.editInfo && data.editInfo.relative) {
@@ -830,22 +856,37 @@ var ForumPostsModule = (function(Utils, EventBus) {
             '</time>' +
             '</div>';
 
-        // Build action buttons intelligently
+        // Build action buttons (disabled on member_posts)
         var actionsHtml = '';
-        if (data.availableActions.quote) {
-            actionsHtml += '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>';
+        if (!data.isMemberPostsPage) {
+            if (data.availableActions.quote) {
+                actionsHtml += '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>';
+            }
+            if (data.availableActions.edit) {
+                actionsHtml += '<button class="action-icon" title="Edit" aria-label="Edit this post" data-action="edit" data-pid="' + data.postId + '"><i class="fa-regular fa-pen-to-square"></i></button>';
+            }
+            if (data.availableActions.share) {
+                actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
+            }
+            if (data.availableActions.report) {
+                actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
+            }
+            if (data.availableActions.delete) {
+                actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
+            }
         }
-        if (data.availableActions.edit) {
-            actionsHtml += '<button class="action-icon" title="Edit" aria-label="Edit this post" data-action="edit" data-pid="' + data.postId + '"><i class="fa-regular fa-pen-to-square"></i></button>';
-        }
-        if (data.availableActions.share) {  // always true for us
-            actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
-        }
-        if (data.availableActions.report) { // always true for us
-            actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
-        }
-        if (data.availableActions.delete) {
-            actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
+
+        // Build footer left side – for member_posts, show topic and forum links
+        var footerLeftHtml = '';
+        if (data.isMemberPostsPage && data.topicLink) {
+            footerLeftHtml = '<div class="post-info-links">';
+            if (data.topicLink) {
+                footerLeftHtml += '<a href="' + Utils.escapeHtml(data.topicLink) + '" class="post-info-link" title="Go to topic"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> ' + Utils.escapeHtml(data.topicTitle) + '</a>';
+            }
+            if (data.forumLink) {
+                footerLeftHtml += '<a href="' + Utils.escapeHtml(data.forumLink) + '" class="post-info-link" title="Go to forum"><i class="fa-regular fa-folder" aria-hidden="true"></i> ' + Utils.escapeHtml(data.forumName) + '</a>';
+            }
+            footerLeftHtml += '</div>';
         }
 
         // Build user stats: conditionally include reputation
@@ -877,6 +918,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 signatureHtml +
             '</div>' +
             '<footer class="post-footer">' +
+                '<div class="post-footer-left">' + footerLeftHtml + '</div>' +
                 '<div class="post-reactions">' + likeButton + reactionsHtml + '</div>' +
                 ipHtml +
             '</footer>' +
@@ -1173,7 +1215,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
             var userTitleData = getUserTitleAndIcon($post);
             if (reactionData.hasReactions) postReactions.set(postId, reactionData.reactions);
 
-            // --- FIX: extract post date from .when span (title attribute or text content) ---
+            // --- Extract post date from .when span ---
             var whenSpan = $post.querySelector('.when');
             var postPermalink = null;
             var postDate = null;
@@ -1188,7 +1230,6 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 } else {
                     // No title attribute – try text content (member_posts)
                     var text = whenSpan.textContent.trim();
-                    // Remove leading "Posted:" and any whitespace
                     text = text.replace(/^Posted:\s*/i, '');
                     if (text) {
                         postDate = parseDateFromTitle(text);
@@ -1199,6 +1240,18 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
             var editInfo = getEditInfo($post);
             var availableActions = getAvailableActions($post, postId);
+            
+            // On member_posts, disable all action buttons (they don't exist)
+            if (isMemberPostsPage) {
+                availableActions.quote = false;
+                availableActions.edit = false;
+                availableActions.delete = false;
+                availableActions.report = false;
+                availableActions.share = false;
+            }
+            
+            // Extract topic/forum links for member_posts
+            var memberLinks = isMemberPostsPage ? getMemberPostLinks($post) : { topicLink: null, topicTitle: null, forumLink: null, forumName: null };
             
             var username = getUsername($post);
             // Override with global username if needed
@@ -1230,7 +1283,11 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 postDate: postDate,
                 postPermalink: postPermalink,
                 availableActions: availableActions,
-                isMemberPostsPage: isMemberPostsPage   // Pass flag to hide reputation and reactions
+                isMemberPostsPage: isMemberPostsPage,
+                topicLink: memberLinks.topicLink,
+                topicTitle: memberLinks.topicTitle,
+                forumLink: memberLinks.forumLink,
+                forumName: memberLinks.forumName
             });
             convertedPostIds.add(postId);
         }

@@ -1358,9 +1358,6 @@ var ForumPostsModule = (function(Utils, EventBus) {
         var summaryEl = document.querySelector('.summary');
         if (!summaryEl) return;
         
-        // Hide original summary
-        summaryEl.style.display = 'none';
-        
         // Create container for modern cards
         var container = document.createElement('div');
         container.id = 'modern-summary-container';

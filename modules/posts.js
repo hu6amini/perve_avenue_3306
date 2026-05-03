@@ -1353,118 +1353,120 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // ============================================================================
     // SUMMARY CONVERSION (NEW)
     // ============================================================================
-    async function convertSummaryPosts() {
-        if (document.body.id !== 'send') return;
-        var summaryEl = document.querySelector('.summary');
-        if (!summaryEl) return;
-        
-        // Hide original summary
-        summaryEl.style.display = 'none';
-        
-        // Create container for modern cards
-        var container = document.createElement('div');
-        container.id = 'modern-summary-container';
-        container.className = 'modern-posts-container';
-        summaryEl.parentNode.insertBefore(container, summaryEl.nextSibling);
-        
-        var listItems = summaryEl.querySelectorAll('.list > li');
-        if (!listItems.length) return;
-        
-        var mids = [];
-        var postsData = [];
-        
-        for (var i = 0; i < listItems.length; i++) {
-            var li = listItems[i];
-            var nickLink = li.querySelector('.nick a');
-            if (!nickLink) continue;
-            var username = nickLink.textContent.trim();
-            var midMatch = nickLink.href.match(/MID=(\d+)/);
-            var mid = midMatch ? midMatch[1] : null;
-            mids.push(mid);
-            
-            // Extract group from CSS classes (box_*)
-            var groupName = 'Member';
-            var classNames = li.className;
-            if (classNames.includes('box_founder')) groupName = 'Founder';
-            else if (classNames.includes('box_amministratore')) groupName = 'Administrator';
-            else if (classNames.includes('box_moderatore')) groupName = 'Moderator';
-            else if (classNames.includes('box_gruppo4')) groupName = 'Member';
-            
-            // Post date
-            var whenSpan = li.querySelector('.when');
-            var postDate = null;
-            if (whenSpan) {
-                var title = whenSpan.getAttribute('title');
-                if (title) {
-                    postDate = parseDateFromTitle(title);
-                } else {
-                    var text = whenSpan.textContent.trim();
-                    text = text.replace(/^Posted\s*/i, '');
-                    postDate = parseDateFromTitle(text);
-                }
+async function convertSummaryPosts() {
+    if (document.body.id !== 'send') return;
+    var summaryEl = document.querySelector('.summary');
+    if (!summaryEl) return;
+
+    // Do NOT hide the original summary – you'll hide it in your CSS
+
+    // Create container for modern cards
+    var container = document.createElement('div');
+    container.id = 'modern-summary-container';
+    container.className = 'modern-posts-container';
+
+    // Insert heading above the container
+    var heading = document.createElement('h3');
+    heading.className = 'sunbar top Item';
+    heading.textContent = 'Last 10 Posts [ In reverse order ]';
+
+    // Insert heading and container after the original summary (siblings, not inside .summary)
+    summaryEl.parentNode.insertBefore(heading, summaryEl.nextSibling);
+    summaryEl.parentNode.insertBefore(container, heading.nextSibling);
+
+    var listItems = summaryEl.querySelectorAll('.list > li');
+    if (!listItems.length) return;
+
+    var mids = [];
+    var postsData = [];
+
+    for (var i = 0; i < listItems.length; i++) {
+        var li = listItems[i];
+        var nickLink = li.querySelector('.nick a');
+        if (!nickLink) continue;
+        var username = nickLink.textContent.trim();
+        var midMatch = nickLink.href.match(/MID=(\d+)/);
+        var mid = midMatch ? midMatch[1] : null;
+        mids.push(mid);
+
+        // Group detection from CSS classes
+        var groupName = 'Member';
+        var classNames = li.className;
+        if (classNames.includes('box_founder')) groupName = 'Founder';
+        else if (classNames.includes('box_amministratore')) groupName = 'Administrator';
+        else if (classNames.includes('box_moderatore')) groupName = 'Moderator';
+        else if (classNames.includes('box_gruppo4')) groupName = 'Member';
+
+        // Post date
+        var whenSpan = li.querySelector('.when');
+        var postDate = null;
+        if (whenSpan) {
+            var title = whenSpan.getAttribute('title');
+            if (title) {
+                postDate = parseDateFromTitle(title);
+            } else {
+                var text = whenSpan.textContent.trim();
+                text = text.replace(/^Posted\s*/i, '');
+                postDate = parseDateFromTitle(text);
             }
-            var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
-            
-            // Content
-            var contentDiv = li.querySelector('.color.Item');
-            var contentHtml = '';
-            if (contentDiv) {
-                var clone = contentDiv.cloneNode(true);
-                // Remove any signature or edit info (just in case)
-                var sig = clone.querySelector('.signature');
-                if (sig) sig.remove();
-                var editSpan = clone.querySelector('.edit');
-                if (editSpan) editSpan.remove();
-                // Transform embedded links
-                var tempHtml = clone.innerHTML;
-                tempHtml = transformEmbeddedLinks(tempHtml);
-                contentHtml = tempHtml;
-            }
-            
-            postsData.push({
-                postId: 'summary_' + i, // dummy id
-                mid: mid,
-                username: username,
-                groupText: groupName,
-                contentHtml: contentHtml,
-                relativeTime: relativeTime,
-                postDate: postDate,
-                isSummary: true,
-                hideActions: true,
-                hideFooter: true,
-                postNumber: i + 1,
-                // Provide default empty values for fields expected by generateModernPost
-                postCount: '0',
-                reputation: '0',
-                isOnline: false,
-                userTitle: 'Member',
-                rankIconClass: 'fa-medal fa-regular',
-                likes: 0,
-                hasReactions: false,
-                reactionCount: 0,
-                reactions: [],
-                availableActions: {}
-            });
         }
-        
-        if (!mids.length) return;
-        
-        await fetchMultipleUsers(mids);
-        
-        for (var i = 0; i < postsData.length; i++) {
-            var data = postsData[i];
-            var apiUser = data.mid ? userDataCache.get(data.mid) : null;
-            var completeData = Object.assign({}, data, { apiUser: apiUser });
-            var cardHtml = generateModernPost(completeData);
-            var temp = document.createElement('div');
-            temp.innerHTML = cardHtml;
-            var card = temp.firstElementChild;
-            container.appendChild(card);
+        var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
+
+        // Content
+        var contentDiv = li.querySelector('.color.Item');
+        var contentHtml = '';
+        if (contentDiv) {
+            var clone = contentDiv.cloneNode(true);
+            var sig = clone.querySelector('.signature');
+            if (sig) sig.remove();
+            var editSpan = clone.querySelector('.edit');
+            if (editSpan) editSpan.remove();
+            contentHtml = transformEmbeddedLinks(clone.innerHTML);
         }
-        
-        console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed');
+
+        postsData.push({
+            postId: 'summary_' + i,
+            mid: mid,
+            username: username,
+            groupText: groupName,
+            contentHtml: contentHtml,
+            relativeTime: relativeTime,
+            postDate: postDate,
+            isSummary: true,
+            hideActions: true,
+            hideFooter: true,
+            postNumber: i + 1,
+            postCount: '0',
+            reputation: '0',
+            isOnline: false,
+            userTitle: 'Member',
+            rankIconClass: 'fa-medal fa-regular',
+            likes: 0,
+            hasReactions: false,
+            reactionCount: 0,
+            reactions: [],
+            availableActions: {}
+        });
     }
 
+    if (!mids.length) return;
+
+    await fetchMultipleUsers(mids);
+
+    for (var i = 0; i < postsData.length; i++) {
+        var data = postsData[i];
+        var apiUser = data.mid ? userDataCache.get(data.mid) : null;
+        var completeData = Object.assign({}, data, { apiUser: apiUser });
+        var cardHtml = generateModernPost(completeData);
+        var temp = document.createElement('div');
+        temp.innerHTML = cardHtml;
+        var card = temp.firstElementChild;
+        container.appendChild(card);
+    }
+
+    console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed');
+}
+    
     // ============================================================================
     // INITIALIZE
     // ============================================================================

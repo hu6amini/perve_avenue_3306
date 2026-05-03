@@ -3,6 +3,7 @@
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
+// ADDED: Conditional action buttons (quote/edit/delete only if available in original post)
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
@@ -707,29 +708,29 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 '</div>';
         }
         
-var groupName = (user && user.group && user.group.name) ? user.group.name : (data.groupText || 'Member');
-var roleClass = 'role-badge';
+        var groupName = (user && user.group && user.group.name) ? user.group.name : (data.groupText || 'Member');
+        var roleClass = 'role-badge';
 
-// Check for founder (via group.class or group.bodyclass)
-var isFounder = user && user.group && (
-    (user.group.class && user.group.class.includes('founder')) ||
-    (user.group.bodyclass && user.group.bodyclass.includes('founder'))
-);
+        // Check for founder (via group.class or group.bodyclass)
+        var isFounder = user && user.group && (
+            (user.group.class && user.group.class.includes('founder')) ||
+            (user.group.bodyclass && user.group.bodyclass.includes('founder'))
+        );
 
-if (isFounder) {
-    roleClass += ' founder';          // special CSS class
-    groupName = 'Founder';            // display text override
-} else if (groupName.toLowerCase() === 'administrator') {
-    roleClass += ' admin';
-} else if (groupName.toLowerCase() === 'moderator') {
-    roleClass += ' moderator';
-} else if (groupName.toLowerCase() === 'developer') {
-    roleClass += ' developer';
-} else {
-    roleClass += ' member';
-}
+        if (isFounder) {
+            roleClass += ' founder';          // special CSS class
+            groupName = 'Founder';            // display text override
+        } else if (groupName.toLowerCase() === 'administrator') {
+            roleClass += ' admin';
+        } else if (groupName.toLowerCase() === 'moderator') {
+            roleClass += ' moderator';
+        } else if (groupName.toLowerCase() === 'developer') {
+            roleClass += ' developer';
+        } else {
+            roleClass += ' member';
+        }
         
-        // Added: Generate a CSS-safe class from the group name
+        // Generate a CSS-safe class from the group name
         var groupCssClass = 'group-' + sanitizeGroupName(groupName);
         
         var postCount = (user && typeof user.messages !== 'undefined') ? user.messages : data.postCount;
@@ -775,7 +776,33 @@ if (isFounder) {
             '</time>' +
             '</div>';
 
-        // Modified article tag: added dynamic group class
+        // ========== CONDITIONAL ACTION BUTTONS ==========
+        var originalPost = data.originalPost;
+        var hasQuote = originalPost && !!originalPost.querySelector('a[href*="CODE=02"]');
+        var hasEdit = originalPost && !!originalPost.querySelector('a[href*="CODE=08"]');
+        // Delete: look for delete link, button, or onclick attribute
+        var hasDelete = originalPost && (
+            !!originalPost.querySelector('a[href*="action=delete"]') ||
+            !!originalPost.querySelector('.delete_button') ||
+            !!originalPost.querySelector('[onclick*="delete_post"]')
+        );
+        // Report and Share are mandatory
+        var actionsHtml = '';
+        if (hasQuote) {
+            actionsHtml += '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>';
+        }
+        if (hasEdit) {
+            actionsHtml += '<button class="action-icon" title="Edit" aria-label="Edit this post" data-action="edit" data-pid="' + data.postId + '"><i class="fa-regular fa-pen-to-square"></i></button>';
+        }
+        // Share is always present
+        actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
+        // Report is always present (mandatory)
+        actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
+        if (hasDelete) {
+            actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
+        }
+
+        // Modified article tag with dynamic actions
         return '<article class="post-card ' + groupCssClass + '" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
                 '<div class="post-meta">' +
@@ -783,11 +810,7 @@ if (isFounder) {
                     postTimeHtml +
                 '</div>' +
                 '<div class="post-actions">' +
-                    '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>' +
-                    '<button class="action-icon" title="Edit" aria-label="Edit this post" data-action="edit" data-pid="' + data.postId + '"><i class="fa-regular fa-pen-to-square"></i></button>' +
-                    '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>' +
-                    '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>' +
-                    '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>' +
+                    actionsHtml +
                 '</div>' +
             '</header>' +
             '<div class="post-card-body">' +
@@ -1085,7 +1108,7 @@ if (isFounder) {
             postsData.push({
                 postId: postId,
                 mid: mid,
-                originalPost: $post,
+                originalPost: $post,   // <-- keep reference to original DOM
                 index: i,
                 username: getUsername($post),
                 groupText: getGroupText($post),
@@ -1128,7 +1151,7 @@ if (isFounder) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars + group class)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars + group class + conditional actions)');
     }
 
     // ============================================================================

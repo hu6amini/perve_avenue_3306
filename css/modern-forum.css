@@ -559,7 +559,7 @@ img {
 }
 
 .user-name {
-    font-weight: 700;
+    font-weight: 600;
     font-size: var(--text-base);
     cursor: pointer;
     display: flex;

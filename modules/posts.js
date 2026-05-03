@@ -3,9 +3,8 @@
 // Transforms .post elements into modern card layout with API user data (avatar, join date, online dot)
 // ADDED: Relative timestamps for post time and edit info
 // ADDED: Group-specific CSS class on post card (e.g., group-fan, group-admin, group-moderator)
-// ADDED: Conditional action buttons (quote, edit, delete, report) based on original post availability
+// ADDED: Intelligent action buttons – only show quote/edit/delete if available in original post
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
-// FIXED: Report button always present (plugin loads later)
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -394,6 +393,34 @@ var ForumPostsModule = (function(Utils, EventBus) {
     function getPostNumber($post, index) { return index + 1; }
 
     // ============================================================================
+    // ACTION BUTTON AVAILABILITY CHECK
+    // ============================================================================
+    function getAvailableActions($post, postId) {
+        var actions = {
+            quote: false,
+            edit: false,
+            delete: false,
+            report: true,   // always show our custom report button
+            share: true     // always show share button
+        };
+        
+        // Check for quote link (CODE=02 in href)
+        var quoteLink = $post.querySelector('a[href*="CODE=02"]');
+        if (quoteLink) actions.quote = true;
+        
+        // Check for edit link (CODE=08 in href)
+        var editLink = $post.querySelector('a[href*="CODE=08"]');
+        if (editLink) actions.edit = true;
+        
+        // Check for delete functionality – look for delete link/button
+        // Common patterns: onclick="delete_post(...)" or class containing "delete"
+        var deleteEl = $post.querySelector('a[onclick*="delete_post"], .deletepost, a[href*="CODE=09"]');
+        if (deleteEl) actions.delete = true;
+        
+        return actions;
+    }
+
+    // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (original)
     // ============================================================================
     function transformEmbeddedLinks(htmlContent) {
@@ -674,8 +701,8 @@ var ForumPostsModule = (function(Utils, EventBus) {
     function sanitizeGroupName(groupName) {
         if (!groupName) return 'unknown';
         return groupName.toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '');
+            .replace(/[^a-z0-9]+/g, '-')   // replace non-alphanumeric with hyphens
+            .replace(/^-+|-+$/g, '');      // trim leading/trailing hyphens
     }
 
     // ============================================================================
@@ -777,23 +804,24 @@ var ForumPostsModule = (function(Utils, EventBus) {
             '</time>' +
             '</div>';
 
-        // Build action buttons conditionally based on original post capabilities
+        // Build action buttons intelligently
         var actionsHtml = '';
-        if (data.hasQuote) {
+        if (data.availableActions.quote) {
             actionsHtml += '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>';
         }
-        if (data.hasEdit) {
+        if (data.availableActions.edit) {
             actionsHtml += '<button class="action-icon" title="Edit" aria-label="Edit this post" data-action="edit" data-pid="' + data.postId + '"><i class="fa-regular fa-pen-to-square"></i></button>';
         }
-        // Share is always our custom feature
-        actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
-        // Report is always included (plugin loads later)
-        actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
-        if (data.hasDelete) {
+        if (data.availableActions.share) {  // always true for us
+            actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
+        }
+        if (data.availableActions.report) { // always true for us
+            actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
+        }
+        if (data.availableActions.delete) {
             actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
         }
 
-        // Modified article tag: added dynamic group class
         return '<article class="post-card ' + groupCssClass + '" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '" aria-labelledby="post-title-' + data.postId + '">' +
             '<header class="post-card-header">' +
                 '<div class="post-meta">' +
@@ -874,7 +902,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
-    // EVENT HANDLERS (unchanged)
+    // EVENT HANDLERS (unchanged except added null checks for missing buttons)
     // ============================================================================
     function handleAvatarClick(pid) {
         var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
@@ -907,6 +935,13 @@ var ForumPostsModule = (function(Utils, EventBus) {
     function handleDelete(pid) {
         if (confirm('Are you sure you want to delete this post?')) {
             if (typeof window.delete_post === 'function') window.delete_post(pid);
+            else {
+                var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
+                if (originalPost) {
+                    var deleteLink = originalPost.querySelector('a[onclick*="delete_post"], .deletepost, a[href*="CODE=09"]');
+                    if (deleteLink) deleteLink.click();
+                }
+            }
         }
     }
 
@@ -1093,13 +1128,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
             var relativeTime = postDate ? getRelativeTimeString(postDate) : 'Recently';
 
             var editInfo = getEditInfo($post);
-
-            // Detect which action buttons exist in the original post (report is always present)
-            var hasQuote = !!$post.querySelector('a[href*="CODE=02"]');
-            var hasEdit = !!$post.querySelector('a[href*="CODE=08"]');
-            var hasDelete = !!($post.querySelector('a[href*="delete"]') || $post.querySelector('[onclick*="delete_post"]'));
-            // Report button is always added (plugin loads later)
-            var hasReport = true;
+            var availableActions = getAvailableActions($post, postId);
 
             postsData.push({
                 postId: postId,
@@ -1124,10 +1153,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 relativeTime: relativeTime,
                 postDate: postDate,
                 postPermalink: postPermalink,
-                hasQuote: hasQuote,
-                hasEdit: hasEdit,
-                hasDelete: hasDelete,
-                hasReport: hasReport
+                availableActions: availableActions
             });
             convertedPostIds.add(postId);
         }
@@ -1151,7 +1177,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
         attachEventHandlers();
 
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars + group class + conditional actions)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (API-enhanced + relative timestamps + initial avatars + group class)');
     }
 
     // ============================================================================

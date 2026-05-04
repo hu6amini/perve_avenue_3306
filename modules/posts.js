@@ -468,7 +468,7 @@ function convertToModernEmbed(originalContainer) {
 
         // 3. Inside it, the second child is the content div with the title, description, and links
         var contentDiv = visiblePart.children[1];
-        if (!contentDiv) contentDiv = visiblePart.children[0]; // fallback if structure differs
+        if (!contentDiv) contentDiv = visiblePart.children[0]; // fallback
 
         // 4. Extract preview image (from the first child of visiblePart)
         var previewDiv = visiblePart.children[0];
@@ -485,15 +485,19 @@ function convertToModernEmbed(originalContainer) {
         var title = titleLink ? titleLink.textContent.trim() : '';
         var mainUrl = titleLink ? titleLink.getAttribute('href') : '';
 
-        // 6. Description: clone content, remove the title link and all remaining <a> elements
+        // 6. Description: clone content, remove all links, then clean up boilerplate
         var clone = contentDiv.cloneNode(true);
-        var cloneFirstA = clone.querySelector('a');
-        if (cloneFirstA) cloneFirstA.remove();
-        var remainingLinks = clone.querySelectorAll('a');
-        for (var r = 0; r < remainingLinks.length; r++) {
-            remainingLinks[r].remove();
+        var allCloneLinks = clone.querySelectorAll('a');
+        for (var r = 0; r < allCloneLinks.length; r++) {
+            allCloneLinks[r].remove();
         }
-        var description = clone.textContent.trim();
+        var rawDescription = clone.textContent.trim();
+
+        // Remove "Leggi altro su" and trailing ">" or "›"
+        rawDescription = rawDescription
+            .replace(/\s*Leggi altro su\s*/gi, '')
+            .replace(/\s*[>›]\s*$/, '')
+            .trim();
 
         // 7. Domain link: the last <a> inside the original contentDiv
         var allLinksInContent = contentDiv.querySelectorAll('a');
@@ -501,17 +505,18 @@ function convertToModernEmbed(originalContainer) {
         var domainText = '';
         if (domainLink) {
             domainText = domainLink.textContent.trim();
-            // Fallback: extract domain from its href if text is empty
             if (!domainText) domainText = extractDomain(domainLink.getAttribute('href') || '');
         } else {
             domainText = extractDomain(mainUrl); // fallback
         }
 
+        // Extract site name: remove "www." and everything after the first dot
+        var siteName = domainText.replace(/^www\./i, '').split('.')[0];
+
         // 8. Build modern embed HTML
         var modernHtml = '<div class="modern-embedded-link">' +
             '<a href="' + Utils.escapeHtml(mainUrl) + '" class="embedded-link-container" target="_blank" rel="noopener noreferrer" title="' + Utils.escapeHtml(title) + '">';
 
-        // Optional preview image
         if (imageUrl) {
             modernHtml += '<div class="embedded-link-image"><img src="' + imageUrl + '" alt="' + Utils.escapeHtml(title) + '" loading="lazy" decoding="async" style="max-width:100%;object-fit:cover;display:block;"></div>';
         }
@@ -519,16 +524,16 @@ function convertToModernEmbed(originalContainer) {
         modernHtml += '<div class="embedded-link-content">';
         modernHtml += '<h3 class="embedded-link-title">' + Utils.escapeHtml(title) + '</h3>';
 
-        if (description) {
-            modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(description) + '</p>';
+        if (rawDescription) {
+            modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(rawDescription) + '</p>';
         }
 
-        // "Read more" line – favicon as background + domain name only
+        // "Read more" line – favicon as background + site name only
         modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more"';
         if (faviconUrl) {
             modernHtml += ' style="background-image:url(' + faviconUrl + ');background-repeat:no-repeat;background-position:left center;background-size:16px 16px;padding-left:22px;display:inline;"';
         }
-        modernHtml += '>' + Utils.escapeHtml(domainText) + '</span></div>';
+        modernHtml += '>' + Utils.escapeHtml(siteName) + '</span></div>';
 
         modernHtml += '</div></a></div>';
 

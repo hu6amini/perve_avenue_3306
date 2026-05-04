@@ -235,6 +235,61 @@ h6 {
     font-weight: 400;
 }
 
+/* Refined heading sizes & spacing */
+h1 {
+    font-size: clamp(var(--text-xl), 5vw, var(--text-3xl));
+    line-height: 1.2;
+    font-weight: 700;
+    margin-top: 0;
+    margin-bottom: var(--space-sm);
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+}
+
+h2 {
+    font-size: clamp(var(--text-lg), 3.5vw, var(--text-2xl));
+    line-height: 1.25;
+    font-weight: 600;
+    margin-top: var(--space-xl);
+    margin-bottom: var(--space-xs);
+    text-wrap: balance;
+}
+
+h3 {
+    font-size: clamp(var(--text-md), 2.5vw, var(--text-xl));
+    line-height: 1.3;
+    font-weight: 600;
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-xs);
+    text-wrap: balance;
+}
+
+h4 {
+    font-size: clamp(var(--text-base), 2vw, var(--text-lg));
+    line-height: 1.35;
+    font-weight: 600;
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-micro);
+}
+
+h5 {
+    font-size: var(--text-sm);
+    line-height: 1.4;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-micro);
+}
+
+h6 {
+    font-size: var(--text-xs);
+    line-height: 1.4;
+    font-weight: 700;
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-micro);
+}
+
 h1 .twemoji {
     height: 1.1em;
     width: 1.1em;

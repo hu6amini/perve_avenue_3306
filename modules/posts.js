@@ -10,6 +10,8 @@
 // CHANGED: Fallback avatars use real DOM initial letter (Quicksand font) instead of SVG data-URI
 // NEW: Summary conversion on body#send – transforms .summary into modern post cards (no actions, no footer) with a modern header
 // IMPROVED: Semantic HTML – username and avatar are anchor tags for better accessibility & SEO
+// NEW: Favicons added to text-only links inside .post-message
+
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
 
@@ -902,6 +904,35 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
+    // FAVICON INJECTION FOR TEXT-ONLY LINKS IN POST-MESSAGE
+    // ============================================================================
+    function applyFaviconsToMessageLinks(container) {
+        if (!container) return;
+        // select all links inside .post-message that don't already have a favicon
+        var links = container.querySelectorAll('.post-message a[href]:not(.has-favicon)');
+        for (var i = 0; i < links.length; i++) {
+            var link = links[i];
+            // skip if link contains an image (e.g., thumbnail)
+            if (link.querySelector('img')) continue;
+            try {
+                var urlObj = new URL(link.href);
+                var domain = urlObj.hostname;
+                var faviconUrl = 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=32';
+
+                link.style.backgroundImage = 'url(' + faviconUrl + ')';
+                link.style.backgroundRepeat = 'no-repeat';
+                link.style.backgroundPosition = 'left center';
+                link.style.backgroundSize = '16px 16px';
+                link.style.paddingLeft = '22px';   // 16px icon + 6px gap
+                link.style.display = 'inline';      // ensure inline flow
+                link.classList.add('has-favicon');
+            } catch (e) {
+                // invalid href – skip
+            }
+        }
+    }
+
+    // ============================================================================
     // REFRESH FUNCTIONS (unchanged)
     // ============================================================================
     function refreshLikeDisplay(postId) {
@@ -1248,20 +1279,21 @@ var ForumPostsModule = (function(Utils, EventBus) {
             temp.innerHTML = cardHtml;
             var card = temp.firstElementChild;
             container.appendChild(card);
+            // Apply favicons to text links inside this card's post-message
+            applyFaviconsToMessageLinks(card);
         }
         attachEventHandlers();
         if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (semantic links, API-enhanced)');
+        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (semantic links, favicons added)');
     }
 
     // ============================================================================
-    // SUMMARY CONVERSION (unchanged except using semantic links automatically)
+    // SUMMARY CONVERSION (unchanged except adding favicons)
     // ============================================================================
     async function convertSummaryPosts() {
         if (document.body.id !== 'send') return;
         var summaryEl = document.querySelector('.summary');
         if (!summaryEl) return;
-        // Optional: summaryEl.style.display = 'none';
         var container = document.getElementById('modern-summary-container');
         if (!container) {
             container = document.createElement('div');
@@ -1358,8 +1390,10 @@ var ForumPostsModule = (function(Utils, EventBus) {
             temp.innerHTML = cardHtml;
             var card = temp.firstElementChild;
             container.appendChild(card);
+            // Apply favicons to summary post cards as well
+            applyFaviconsToMessageLinks(card);
         }
-        console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed with semantic links');
+        console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed with favicons');
     }
 
     // ============================================================================

@@ -497,15 +497,16 @@ function convertToModernEmbed(originalContainer) {
             modernHtml += '<div class="embedded-link-image"><img src="' + imageUrl + '" alt="' + Utils.escapeHtml(title) + '" loading="lazy" decoding="async" style="max-width:100%;object-fit:cover;display:block;"></div>';
         }
         modernHtml += '<div class="embedded-link-content">';
-        // REMOVED: old embedded-link-domain section
         modernHtml += '<h3 class="embedded-link-title">' + Utils.escapeHtml(title) + '</h3>';
         if (description) modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(description.substring(0,200)) + (description.length>200?'…':'') + '</p>';
-        // NEW: read‑more line shows favicon + domain only
-        modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more">';
+
+        // "Read more" line – show only favicon + domain, with favicon as a CSS background
+        modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more"';
         if (faviconUrl) {
-            modernHtml += '<img src="' + faviconUrl + '" alt="" class="embedded-link-favicon" width="16" height="16" loading="lazy"> ';
+            modernHtml += ' style="background-image:url(' + faviconUrl + ');background-repeat:no-repeat;background-position:left center;background-size:16px 16px;padding-left:22px;display:inline;"';
         }
-        modernHtml += Utils.escapeHtml(domain) + '</span></div>';
+        modernHtml += '>' + Utils.escapeHtml(domain) + '</span></div>';
+
         modernHtml += '</div></a></div>';
         return createElementFromHTML(modernHtml);
     } catch(e) { return null; }

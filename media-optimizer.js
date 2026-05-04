@@ -58,6 +58,10 @@
     function shouldSkip(url, el) {
         if (!url || url.indexOf('data:') === 0) return true;
         
+        // --- NEW: Skip favicon images (marked with class 'favicon-icon') ---
+        if (el && el.classList.contains('favicon-icon')) return true;
+        // -------------------------------------------------------------------
+        
         var lower = url.toLowerCase();
         
         for (var i = 0; i < CONFIG.skipPatterns.length; i++) {

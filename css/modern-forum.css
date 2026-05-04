@@ -889,45 +889,6 @@ img {
     box-sizing: border-box;
 }
 
-.modern-embedded-link .embedded-link-domain {
-    display: flex;
-    align-items: center;
-    gap: var(--space-xs);
-    margin: 0 0 var(--space-sm) 0;
-    font-size: var(--text-xs);
-    color: var(--text-tertiary);
-    text-align: left;
-    justify-content: flex-start;
-    width: 100%;
-}
-
-.embedded-link-domain a.embedded-link-container {
-    gap: var(--space-xs);
-}
-
-.modern-embedded-link .embedded-link-favicon {
-    width: 16px;
-    height: 16px;
-    min-width: 16px;
-    min-height: 16px;
-    border-radius: var(--pad-2);
-    object-fit: contain;
-    display: inline-block;
-    vertical-align: middle;
-    flex-shrink: 0;
-}
-
-.modern-embedded-link .embedded-link-domain span {
-    font-weight: 500;
-    text-transform: lowercase;
-    display: inline-block;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .modern-embedded-link .embedded-link-title {
     font-size: var(--text-base);
     line-height: var(--phi);

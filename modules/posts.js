@@ -452,55 +452,79 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
 function convertToModernEmbed(originalContainer) {
     try {
-        var allLinks = originalContainer.querySelectorAll('a');
-        var mainLink = null, titleLink = null, description = '', imageUrl = null, faviconUrl = null;
-        for (var i = 0; i < allLinks.length; i++) {
-            var link = allLinks[i];
-            var text = link.textContent.trim();
-            var href = link.getAttribute('href');
-            if (!href) continue;
-            if (!mainLink) mainLink = href;
-            if (text && text.length > 10 && !text.includes('Leggi altro') && !text.includes('Read more') && !text.includes('F24.MY') && text !== extractDomain(href)) {
-                titleLink = link;
-                break;
-            }
-        }
-        if (!titleLink) {
-            for (var i = allLinks.length-1; i >=0; i--) {
-                var link = allLinks[i];
-                var text = link.textContent.trim();
-                var href = link.getAttribute('href');
-                if (href && text && !text.includes('Leggi altro') && !text.includes('Read more')) {
-                    titleLink = link;
-                    break;
-                }
-            }
-        }
-        var url = mainLink || (titleLink ? titleLink.getAttribute('href') : null);
-        if (!url) return null;
-        var domain = extractDomain(url);
-        var title = titleLink ? titleLink.textContent.trim() : domain;
-        var paragraphs = originalContainer.querySelectorAll('div:not([style]) p');
-        if (paragraphs.length > 0) description = paragraphs[0].textContent.trim();
-        var imgElement = originalContainer.querySelector('.ffb_embedlink_preview img');
-        if (imgElement && imgElement.getAttribute('src')) imageUrl = imgElement.getAttribute('src');
-        var hiddenDiv = originalContainer.querySelector('div[style="display:none"]');
+        // 1. Extract favicon from the hidden block
+        var hiddenDiv = originalContainer.querySelector('div[style*="display:none"]');
+        var faviconUrl = null;
         if (hiddenDiv) {
             var faviconImg = hiddenDiv.querySelector('img');
-            if (faviconImg && faviconImg.getAttribute('src')) faviconUrl = faviconImg.getAttribute('src');
+            if (faviconImg) faviconUrl = faviconImg.getAttribute('src');
         }
 
-        // ===== Build modern embed HTML =====
+        // 2. Extract main preview image
+        var imageUrl = null;
+        var previewLink = originalContainer.querySelector('.ffb_embedlink_preview');
+        if (previewLink) {
+            var previewImg = previewLink.querySelector('img');
+            if (previewImg) imageUrl = previewImg.getAttribute('src');
+        }
+
+        // 3. Get the visible content area (skip the hidden div)
+        var visibleDiv = originalContainer.querySelector('div:not([style*="display:none"])');
+        if (!visibleDiv) return null;
+
+        // The content is in the last child <div> of the visible part
+        var contentDiv = visibleDiv.querySelector('div:last-child');
+        if (!contentDiv) return null;
+
+        var allLinks = contentDiv.querySelectorAll('a');
+        if (allLinks.length === 0) return null;
+
+        // Title is the first link
+        var titleLink = allLinks[0];
+        var title = titleLink.textContent.trim();
+
+        // The last link is the domain (the “Leggi altro su” link is before it)
+        var domainLink = allLinks[allLinks.length - 1];
+        var domain = domainLink.textContent.trim() || extractDomain(domainLink.href);
+
+        // Use the domain link’s href as the main URL if it’s an external domain,
+        // otherwise fall back to the title link’s href
+        var mainUrl = domainLink.href;
+        if (!mainUrl) mainUrl = titleLink.href;
+
+        // 4. Extract description text (text nodes after the title link, before the “Leggi altro” link)
+        var description = '';
+        var node = titleLink.nextSibling;
+        // skip <br> and collect text nodes until we reach an anchor with “Leggi” / “Read more”
+        while (node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                var text = node.textContent.trim();
+                if (text) description += text + ' ';
+            } else if (node.tagName === 'A') {
+                var linkText = node.textContent.trim().toLowerCase();
+                if (linkText.includes('leggi altro') || linkText.includes('read more')) break;
+            } else if (node.tagName === 'BR') {
+                // continue
+            } else {
+                // other elements – stop collecting
+                break;
+            }
+            node = node.nextSibling;
+        }
+        description = description.trim();
+
+        // 5. Build the modern HTML
         var modernHtml = '<div class="modern-embedded-link">' +
-            '<a href="' + Utils.escapeHtml(url) + '" class="embedded-link-container" target="_blank" rel="noopener noreferrer" title="' + Utils.escapeHtml(title) + '">';
+            '<a href="' + Utils.escapeHtml(mainUrl) + '" class="embedded-link-container" target="_blank" rel="noopener noreferrer" title="' + Utils.escapeHtml(title) + '">';
         if (imageUrl) {
             modernHtml += '<div class="embedded-link-image"><img src="' + imageUrl + '" alt="' + Utils.escapeHtml(title) + '" loading="lazy" decoding="async" style="max-width:100%;object-fit:cover;display:block;"></div>';
         }
         modernHtml += '<div class="embedded-link-content">';
         modernHtml += '<h3 class="embedded-link-title">' + Utils.escapeHtml(title) + '</h3>';
-        if (description) modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(description.substring(0,200)) + (description.length>200?'…':'') + '</p>';
-
-        // "Read more" line – show only favicon + domain, with favicon as a CSS background
+        if (description) {
+            modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(description.substring(0,200)) + (description.length>200?'…':'') + '</p>';
+        }
+        // Read‑more line: favicon as background + domain name
         modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more"';
         if (faviconUrl) {
             modernHtml += ' style="background-image:url(' + faviconUrl + ');background-repeat:no-repeat;background-position:left center;background-size:16px 16px;padding-left:22px;display:inline;"';

@@ -452,7 +452,7 @@ var ForumPostsModule = (function(Utils, EventBus) {
 
 function convertToModernEmbed(originalContainer) {
     try {
-        // 1. Extract favicon from the hidden div
+        // 1. Extract favicon from the hidden div (if available)
         var hiddenDiv = originalContainer.querySelector('div[style="display:none"]');
         var faviconUrl = null;
         if (hiddenDiv) {
@@ -492,8 +492,6 @@ function convertToModernEmbed(originalContainer) {
             allCloneLinks[r].remove();
         }
         var rawDescription = clone.textContent.trim();
-
-        // Remove "Leggi altro su" and trailing ">" or "›"
         rawDescription = rawDescription
             .replace(/\s*Leggi altro su\s*/gi, '')
             .replace(/\s*[>›]\s*$/, '')
@@ -510,10 +508,18 @@ function convertToModernEmbed(originalContainer) {
             domainText = extractDomain(mainUrl); // fallback
         }
 
+        // 8. Ensure we always have a favicon – fallback to Google Favicons API
+        if (!faviconUrl) {
+            var fallbackDomain = domainLink ? extractDomain(domainLink.getAttribute('href') || '') : extractDomain(mainUrl);
+            if (fallbackDomain) {
+                faviconUrl = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(fallbackDomain) + '&sz=32';
+            }
+        }
+
         // Extract site name: remove "www." and everything after the first dot
         var siteName = domainText.replace(/^www\./i, '').split('.')[0];
 
-        // 8. Build modern embed HTML
+        // 9. Build modern embed HTML
         var modernHtml = '<div class="modern-embedded-link">' +
             '<a href="' + Utils.escapeHtml(mainUrl) + '" class="embedded-link-container" target="_blank" rel="noopener noreferrer" title="' + Utils.escapeHtml(title) + '">';
 
@@ -528,12 +534,10 @@ function convertToModernEmbed(originalContainer) {
             modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(rawDescription) + '</p>';
         }
 
-        // "Read more" line – favicon as background + site name only
-        modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more"';
-        if (faviconUrl) {
-            modernHtml += ' style="background-image:url(' + faviconUrl + ');background-repeat:no-repeat;background-position:left center;background-size:16px 16px;padding-left:22px;display:inline;"';
-        }
-        modernHtml += '>' + Utils.escapeHtml(siteName) + '</span></div>';
+        // "Read more" line – always show favicon as background + site name
+        modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more" style="';
+        modernHtml += 'background-image:url(' + faviconUrl + ');background-repeat:no-repeat;background-position:left center;background-size:16px 16px;padding-left:22px;display:inline;';
+        modernHtml += '">' + Utils.escapeHtml(siteName) + '</span></div>';
 
         modernHtml += '</div></a></div>';
 

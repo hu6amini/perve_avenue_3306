@@ -450,62 +450,66 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return tempDiv.innerHTML;
     }
 
-    function convertToModernEmbed(originalContainer) {
-        try {
-            var allLinks = originalContainer.querySelectorAll('a');
-            var mainLink = null, titleLink = null, description = '', imageUrl = null, faviconUrl = null;
-            for (var i = 0; i < allLinks.length; i++) {
+function convertToModernEmbed(originalContainer) {
+    try {
+        var allLinks = originalContainer.querySelectorAll('a');
+        var mainLink = null, titleLink = null, description = '', imageUrl = null, faviconUrl = null;
+        for (var i = 0; i < allLinks.length; i++) {
+            var link = allLinks[i];
+            var text = link.textContent.trim();
+            var href = link.getAttribute('href');
+            if (!href) continue;
+            if (!mainLink) mainLink = href;
+            if (text && text.length > 10 && !text.includes('Leggi altro') && !text.includes('Read more') && !text.includes('F24.MY') && text !== extractDomain(href)) {
+                titleLink = link;
+                break;
+            }
+        }
+        if (!titleLink) {
+            for (var i = allLinks.length-1; i >=0; i--) {
                 var link = allLinks[i];
                 var text = link.textContent.trim();
                 var href = link.getAttribute('href');
-                if (!href) continue;
-                if (!mainLink) mainLink = href;
-                if (text && text.length > 10 && !text.includes('Leggi altro') && !text.includes('Read more') && !text.includes('F24.MY') && text !== extractDomain(href)) {
+                if (href && text && !text.includes('Leggi altro') && !text.includes('Read more')) {
                     titleLink = link;
                     break;
                 }
             }
-            if (!titleLink) {
-                for (var i = allLinks.length-1; i >=0; i--) {
-                    var link = allLinks[i];
-                    var text = link.textContent.trim();
-                    var href = link.getAttribute('href');
-                    if (href && text && !text.includes('Leggi altro') && !text.includes('Read more')) {
-                        titleLink = link;
-                        break;
-                    }
-                }
-            }
-            var url = mainLink || (titleLink ? titleLink.getAttribute('href') : null);
-            if (!url) return null;
-            var domain = extractDomain(url);
-            var title = titleLink ? titleLink.textContent.trim() : domain;
-            var paragraphs = originalContainer.querySelectorAll('div:not([style]) p');
-            if (paragraphs.length > 0) description = paragraphs[0].textContent.trim();
-            var imgElement = originalContainer.querySelector('.ffb_embedlink_preview img');
-            if (imgElement && imgElement.getAttribute('src')) imageUrl = imgElement.getAttribute('src');
-            var hiddenDiv = originalContainer.querySelector('div[style="display:none"]');
-            if (hiddenDiv) {
-                var faviconImg = hiddenDiv.querySelector('img');
-                if (faviconImg && faviconImg.getAttribute('src')) faviconUrl = faviconImg.getAttribute('src');
-            }
-            var modernHtml = '<div class="modern-embedded-link">' +
-                '<a href="' + Utils.escapeHtml(url) + '" class="embedded-link-container" target="_blank" rel="noopener noreferrer" title="' + Utils.escapeHtml(title) + '">';
-            if (imageUrl) {
-                modernHtml += '<div class="embedded-link-image"><img src="' + imageUrl + '" alt="' + Utils.escapeHtml(title) + '" loading="lazy" decoding="async" style="max-width:100%;object-fit:cover;display:block;"></div>';
-            }
-            modernHtml += '<div class="embedded-link-content">';
-            if (faviconUrl || domain) {
-                modernHtml += '<div class="embedded-link-domain">';
-                if (faviconUrl) modernHtml += '<img src="' + faviconUrl + '" alt="" class="embedded-link-favicon" loading="lazy" width="16" height="16">';
-                modernHtml += '<span>' + Utils.escapeHtml(domain) + '</span></div>';
-            }
-            modernHtml += '<h3 class="embedded-link-title">' + Utils.escapeHtml(title) + '</h3>';
-            if (description) modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(description.substring(0,200)) + (description.length>200?'…':'') + '</p>';
-            modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more">Read more on ' + Utils.escapeHtml(domain) + ' ›</span></div></div></a></div>';
-            return createElementFromHTML(modernHtml);
-        } catch(e) { return null; }
-    }
+        }
+        var url = mainLink || (titleLink ? titleLink.getAttribute('href') : null);
+        if (!url) return null;
+        var domain = extractDomain(url);
+        var title = titleLink ? titleLink.textContent.trim() : domain;
+        var paragraphs = originalContainer.querySelectorAll('div:not([style]) p');
+        if (paragraphs.length > 0) description = paragraphs[0].textContent.trim();
+        var imgElement = originalContainer.querySelector('.ffb_embedlink_preview img');
+        if (imgElement && imgElement.getAttribute('src')) imageUrl = imgElement.getAttribute('src');
+        var hiddenDiv = originalContainer.querySelector('div[style="display:none"]');
+        if (hiddenDiv) {
+            var faviconImg = hiddenDiv.querySelector('img');
+            if (faviconImg && faviconImg.getAttribute('src')) faviconUrl = faviconImg.getAttribute('src');
+        }
+
+        // ===== Build modern embed HTML =====
+        var modernHtml = '<div class="modern-embedded-link">' +
+            '<a href="' + Utils.escapeHtml(url) + '" class="embedded-link-container" target="_blank" rel="noopener noreferrer" title="' + Utils.escapeHtml(title) + '">';
+        if (imageUrl) {
+            modernHtml += '<div class="embedded-link-image"><img src="' + imageUrl + '" alt="' + Utils.escapeHtml(title) + '" loading="lazy" decoding="async" style="max-width:100%;object-fit:cover;display:block;"></div>';
+        }
+        modernHtml += '<div class="embedded-link-content">';
+        // REMOVED: old embedded-link-domain section
+        modernHtml += '<h3 class="embedded-link-title">' + Utils.escapeHtml(title) + '</h3>';
+        if (description) modernHtml += '<p class="embedded-link-description">' + Utils.escapeHtml(description.substring(0,200)) + (description.length>200?'…':'') + '</p>';
+        // NEW: read‑more line shows favicon + domain only
+        modernHtml += '<div class="embedded-link-meta"><span class="embedded-link-read-more">';
+        if (faviconUrl) {
+            modernHtml += '<img src="' + faviconUrl + '" alt="" class="embedded-link-favicon" width="16" height="16" loading="lazy"> ';
+        }
+        modernHtml += Utils.escapeHtml(domain) + '</span></div>';
+        modernHtml += '</div></a></div>';
+        return createElementFromHTML(modernHtml);
+    } catch(e) { return null; }
+}
 
     function extractDomain(url) {
         try {

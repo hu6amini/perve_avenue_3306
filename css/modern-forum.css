@@ -886,6 +886,7 @@ img {
 
 .embedded-link-container:hover {
     background: var(--hover-color);
+    text-decoration:none;
 }
 
 .embedded-link-image {

@@ -237,37 +237,37 @@ h6 {
 
 /* Refined heading sizes & spacing */
 h1 {
-    font-size: clamp(1.5rem, 4vw, calc(var(--text-xl) * 1.1));
-    margin-top: var(--space-lg);
-    margin-bottom: var(--space-lg);
+    font-size: clamp(1.5rem, 4vw, calc(var(--text-xl) * 1.1))!important;
+    margin-top: var(--space-lg)!important;
+    margin-bottom: var(--space-lg)!important;
     letter-spacing: -0.015em;
 }
 
 h2 {
-    font-size: clamp(1.25rem, 3vw, var(--text-lg));
-    margin-top: var(--space-lg);
-    margin-bottom: var(--space-md);
+    font-size: clamp(1.25rem, 3vw, var(--text-lg))!important;
+    margin-top: var(--space-lg)!important;
+    margin-bottom: var(--space-md)!important;
 }
 
 h3 {
-    font-size: clamp(1rem, 2.5vw, var(--text-base));
-    margin-top: var(--space-md);
-    margin-bottom: var(--space-sm);
+    font-size: clamp(1rem, 2.5vw, var(--text-base))!important;
+    margin-top: var(--space-md)!important;
+    margin-bottom: var(--space-sm)!important;
 }
 
 h4 {
-    font-size: clamp(0.875rem, 2vw, var(--text-sm));
-    margin-top: var(--space-md);
+    font-size: clamp(0.875rem, 2vw, var(--text-sm))!important;
+    margin-top: var(--space-md)!important;
 }
 
 h5 {
-    font-size: clamp(0.75rem, 1.5vw, var(--text-xs));
-    margin-top: var(--space-sm);
+    font-size: clamp(0.75rem, 1.5vw, var(--text-xs))!important;
+    margin-top: var(--space-sm)!important;
 }
 
 h6 {
-    font-size: clamp(0.6875rem, 1vw, 0.6875rem);
-    margin-top: var(--space-sm);
+    font-size: clamp(0.6875rem, 1vw, 0.6875rem)!important;
+    margin-top: var(--space-sm)!important;
 }
 h1 .twemoji {
     height: 1.1em;
@@ -924,8 +924,6 @@ img {
 }
 
 .modern-embedded-link .embedded-link-title {
-    font-size: var(--text-base);
-    line-height: var(--phi);
     margin: 0 0 var(--space-xs) 0;
     color: var(--text-primary);
     display: -webkit-box;

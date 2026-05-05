@@ -438,83 +438,104 @@ var ForumPostsModule = (function(Utils, EventBus) {
     // ============================================================================
     // BLOG ARTICLE DATA EXTRACTION (NEW)
     // ============================================================================
-    function getBlogArticleData(articleLi) {
-        var postId = getPostId(articleLi);
-        var mid = null;
-        var userLink = articleLi.querySelector('.who a[href*="MID="]');
-        if (userLink) {
-            var match = userLink.href.match(/MID=(\d+)/);
-            if (match) mid = match[1];
-        }
-        var username = userLink ? userLink.textContent.trim() : 'Unknown';
-        
-        var titleLink = articleLi.querySelector('.btitle a');
-        var title = titleLink ? titleLink.textContent.trim() : '';
-        var permalink = titleLink ? titleLink.getAttribute('href') : '';
-        
-        var whenSpan = articleLi.querySelector('.when');
-        var rawDate = null;
-        if (whenSpan) {
-            rawDate = whenSpan.getAttribute('title');
-        }
-        var postDate = parseDateFromTitle(rawDate);
-        var absoluteDate = postDate ? postDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
-        
-        var editInfo = getEditInfo(articleLi);
-        
-        // Content: clone .center .color, remove reaction widget and edit span
-        var contentDiv = articleLi.querySelector('.center .color');
-        var contentHtml = '';
-        if (contentDiv) {
-            var clone = contentDiv.cloneNode(true);
-            var reactionWidget = clone.querySelector('.st-emoji-widget');
-            if (reactionWidget) reactionWidget.remove();
-            var editSpan = clone.querySelector('.edit');
-            if (editSpan) editSpan.remove();
-            contentHtml = clone.innerHTML.trim();
-            contentHtml = transformEmbeddedLinks(contentHtml);
-        }
-        
-        // Likes (points)
-        var pointsPos = articleLi.querySelector('.points_pos');
-        var likes = 0;
-        if (pointsPos) {
-            likes = parseInt(pointsPos.textContent.replace(/[^0-9]/g,'')) || 0;
+function getBlogArticleData(articleLi) {
+    var postId = getPostId(articleLi);
+    var mid = null;
+    var userLink = articleLi.querySelector('.who a[href*="MID="]');
+    if (userLink) {
+        var match = userLink.href.match(/MID=(\d+)/);
+        if (match) mid = match[1];
+    }
+    var username = userLink ? userLink.textContent.trim() : 'Unknown';
+    
+    var titleLink = articleLi.querySelector('.btitle a');
+    var title = titleLink ? titleLink.textContent.trim() : '';
+    var permalink = titleLink ? titleLink.getAttribute('href') : '';
+    
+    var whenSpan = articleLi.querySelector('.when');
+    var rawDate = null;
+    if (whenSpan) {
+        rawDate = whenSpan.getAttribute('title');
+    }
+    var postDate = parseDateFromTitle(rawDate);
+    var absoluteDate = postDate ? postDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+    
+    var editInfo = getEditInfo(articleLi);
+    
+    // Content: clone .center .color, remove reaction widget + edit span and any preceding <br> tags
+    var contentDiv = articleLi.querySelector('.center .color');
+    var contentHtml = '';
+    if (contentDiv) {
+        var clone = contentDiv.cloneNode(true);
+
+        // Remove reaction widget and its preceding <br> tags
+        var reactionWidget = clone.querySelector('.st-emoji-widget');
+        if (reactionWidget) {
+            var prev = reactionWidget.previousSibling;
+            while (prev && prev.nodeType === 1 && prev.tagName === 'BR') {
+                var toRemove = prev;
+                prev = prev.previousSibling;
+                toRemove.remove();
+            }
+            reactionWidget.remove();
         }
 
-        // Reactions preview (top)
-        var reactionData = getReactionData(articleLi);
-        
-        // Comments & views
-        var commentsEm = articleLi.querySelector('.replies em');
-        var commentsCount = commentsEm ? parseInt(commentsEm.textContent) || 0 : 0;
-        var viewsEm = articleLi.querySelector('.views em');
-        var viewsCount = viewsEm ? parseInt(viewsEm.textContent) || 0 : 0;
-        
-        // Available actions
-        var availableActions = getAvailableActions(articleLi, postId);
-        
-        // For blog articles, we can also extract group info later from API
-        return {
-            postId: postId,
-            mid: mid,
-            username: username,
-            title: title,
-            permalink: permalink,
-            postDate: postDate,
-            absoluteDate: absoluteDate,
-            contentHtml: contentHtml,
-            editInfo: editInfo,
-            likes: likes,
-            hasReactions: reactionData.hasReactions,
-            reactionCount: reactionData.reactionCount,
-            reactions: reactionData.reactions,
-            commentsCount: commentsCount,
-            viewsCount: viewsCount,
-            availableActions: availableActions,
-            originalPost: articleLi
-        };
+        // Remove edit span and its preceding <br> tags
+        var editSpan = clone.querySelector('.edit');
+        if (editSpan) {
+            var prev = editSpan.previousSibling;
+            while (prev && prev.nodeType === 1 && prev.tagName === 'BR') {
+                var toRemove = prev;
+                prev = prev.previousSibling;
+                toRemove.remove();
+            }
+            editSpan.remove();
+        }
+
+        contentHtml = clone.innerHTML.trim();
+        contentHtml = transformEmbeddedLinks(contentHtml);
     }
+    
+    // Likes (points)
+    var pointsPos = articleLi.querySelector('.points_pos');
+    var likes = 0;
+    if (pointsPos) {
+        likes = parseInt(pointsPos.textContent.replace(/[^0-9]/g,'')) || 0;
+    }
+
+    // Reactions preview (top)
+    var reactionData = getReactionData(articleLi);
+    
+    // Comments & views
+    var commentsEm = articleLi.querySelector('.replies em');
+    var commentsCount = commentsEm ? parseInt(commentsEm.textContent) || 0 : 0;
+    var viewsEm = articleLi.querySelector('.views em');
+    var viewsCount = viewsEm ? parseInt(viewsEm.textContent) || 0 : 0;
+    
+    // Available actions
+    var availableActions = getAvailableActions(articleLi, postId);
+    
+    // For blog articles, we can also extract group info later from API
+    return {
+        postId: postId,
+        mid: mid,
+        username: username,
+        title: title,
+        permalink: permalink,
+        postDate: postDate,
+        absoluteDate: absoluteDate,
+        contentHtml: contentHtml,
+        editInfo: editInfo,
+        likes: likes,
+        hasReactions: reactionData.hasReactions,
+        reactionCount: reactionData.reactionCount,
+        reactions: reactionData.reactions,
+        commentsCount: commentsCount,
+        viewsCount: viewsCount,
+        availableActions: availableActions,
+        originalPost: articleLi
+    };
+}
 
     // ============================================================================
     // GENERATE MODERN BLOG CARD (NEW)

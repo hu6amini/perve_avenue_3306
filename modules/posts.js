@@ -1778,20 +1778,30 @@ function convertToModernEmbed(originalContainer) {
                     convertAllPosts();
                 }
             });
-            globalThis.forumObserver.register({
-                id: 'posts-module-reactions',
-                selector: '.st-emoji-container',
-                priority: 'medium',
-                callback: function(node) {
-                    var postEl = node.closest('.post');
-                    if (postEl && isValidPost(postEl)) {
-                        var postId = getPostId(postEl);
-                        if (postId) {
-                            setTimeout(function() { refreshReactionDisplay(postId); }, 100);
-                        }
-                    }
-                }
-            });
+globalThis.forumObserver.register({
+    id: 'posts-module-reactions',
+    selector: '.st-emoji-container',
+    priority: 'medium',
+    callback: function(node) {
+        // Regular post
+        var postEl = node.closest('.post');
+        if (postEl && isValidPost(postEl)) {
+            var postId = getPostId(postEl);
+            if (postId) {
+                setTimeout(function() { refreshReactionDisplay(postId); }, 100);
+            }
+            return;
+        }
+        // Blog article
+        var articleEl = node.closest('.article');
+        if (articleEl) {
+            var pid = getPostId(articleEl);
+            if (pid) {
+                setTimeout(function() { refreshReactionDisplay(pid); }, 100);
+            }
+        }
+    }
+});
             globalThis.forumObserver.register({
                 id: 'posts-module-reaction-images',
                 selector: '.st-emoji-preview img',

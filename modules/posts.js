@@ -371,33 +371,55 @@ var ForumPostsModule = (function(Utils, EventBus) {
         return parseInt(pointsPos.textContent) || 0;
     }
 
-    function getReactionData($post) {
-        var hasReactions = false;
-        var reactionCount = 0;
-        var reactions = [];
-        var emojiContainer = $post.querySelector('.st-emoji-container');
-        if (emojiContainer) {
-            var counters = emojiContainer.querySelectorAll('.st-emoji-counter');
-            if (counters.length > 0) {
-                hasReactions = true;
-                counters.forEach(function(counter) {
-                    var count = parseInt(counter.getAttribute('data-count') || counter.textContent || 0);
-                    reactionCount += count;
-                });
-                var previewDiv = emojiContainer.querySelector('.st-emoji-preview');
-                if (previewDiv) {
-                    var images = previewDiv.querySelectorAll('img');
-                    images.forEach(function(img) {
-                        var alt = img.getAttribute('alt') || '';
-                        var src = img.getAttribute('src') || '';
-                        if (src) reactions.push({ alt: alt, src: src, name: alt.replace(/:/g, '') });
-                    });
-                }
-            }
+function getReactionData($post) {
+    var hasReactions = false;
+    var reactionCount = 0;
+    var reactions = [];
+    
+    // Look at all .st-emoji-container elements (blog articles have two)
+    var containers = $post.querySelectorAll('.st-emoji-container');
+    
+    containers.forEach(function(container) {
+        // Counters can be direct children (preview) or nested inside .st-emoji-info (widget)
+        var counters = container.querySelectorAll('.st-emoji-counter');
+        if (counters.length > 0) {
+            hasReactions = true;
+            counters.forEach(function(counter) {
+                var count = parseInt(counter.getAttribute('data-count') || counter.textContent || 0);
+                reactionCount += count;
+            });
         }
-        return { hasReactions: hasReactions, reactionCount: reactionCount, reactions: reactions };
-    }
-
+        
+        // Extract images for the preview – from .st-emoji-preview (if it exists in this container)
+        var previewDiv = container.querySelector('.st-emoji-preview');
+        if (previewDiv) {
+            var images = previewDiv.querySelectorAll('img');
+            images.forEach(function(img) {
+                var alt = img.getAttribute('alt') || '';
+                var src = img.getAttribute('src') || '';
+                if (src) reactions.push({ alt: alt, src: src, name: alt.replace(/:/g, '') });
+            });
+        }
+        
+        // If no preview, try to extract from .st-emoji-content (widget format)
+        if (!previewDiv) {
+            var contentElements = container.querySelectorAll('.st-emoji-content');
+            contentElements.forEach(function(contentEl) {
+                var img = contentEl.querySelector('img');
+                if (img) {
+                    var alt = img.getAttribute('alt') || '';
+                    var src = img.getAttribute('src') || '';
+                    if (src && !reactions.some(function(r) { return r.src === src; })) {
+                        reactions.push({ alt: alt, src: src, name: alt.replace(/:/g, '') });
+                    }
+                }
+            });
+        }
+    });
+    
+    return { hasReactions: hasReactions, reactionCount: reactionCount, reactions: reactions };
+}
+    
     function getMaskedIp($post) {
         var ipLink = $post.querySelector('.ip_address dd a');
         if (!ipLink) return '';

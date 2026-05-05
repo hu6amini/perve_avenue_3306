@@ -1635,6 +1635,10 @@ img,
         flex-wrap: wrap;
         justify-content: flex-end;
     }
+   
+    .post-signature {
+        display: none;
+    }
 }
 
 /*--------------------------------------------

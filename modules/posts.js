@@ -376,7 +376,7 @@ function getReactionData($post) {
     var reactionCount = 0;
     var reactions = [];
 
-    // ---------- 1. Aggregate total counter from ALL containers ----------
+    // Aggregates total counter from ALL containers (top preview + bottom widget)
     var allContainers = $post.querySelectorAll('.st-emoji-container');
     allContainers.forEach(function (container) {
         var counters = container.querySelectorAll('.st-emoji-counter');
@@ -389,7 +389,7 @@ function getReactionData($post) {
         });
     });
 
-    // ---------- 2. Extract individual reactions ----------
+    // Extract individual reaction images
     // Prefer the widget (detailed list) if present
     var widgetContainer = null;
     var widget = $post.querySelector('.st-emoji-widget');
@@ -398,7 +398,7 @@ function getReactionData($post) {
     }
 
     if (widgetContainer) {
-        // Walk each <li class="st-emoji-info"> inside the widget
+        // Widget format: each .st-emoji-info has its own counter
         var items = widgetContainer.querySelectorAll('.st-emoji-info');
         items.forEach(function (item) {
             var counterEl = item.querySelector('.st-emoji-counter');
@@ -422,7 +422,7 @@ function getReactionData($post) {
             }
         });
     } else {
-        // Fallback to the preview container (regular posts)
+        // Fallback to preview container (regular posts)
         var previewContainer = $post.querySelector('.st-emoji-container');
         if (previewContainer) {
             var previewDiv = previewContainer.querySelector('.st-emoji-preview');
@@ -444,11 +444,7 @@ function getReactionData($post) {
         }
     }
 
-    return {
-        hasReactions: hasReactions,
-        reactionCount: reactionCount,
-        reactions: reactions
-    };
+    return { hasReactions: hasReactions, reactionCount: reactionCount, reactions: reactions };
 }
     
     function getMaskedIp($post) {

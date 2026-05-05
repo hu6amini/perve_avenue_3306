@@ -709,8 +709,6 @@ function getBlogArticleData(articleLi) {
                 '<h1 class="blog-title"><a href="' + Utils.escapeHtml(data.permalink) + '">' + Utils.escapeHtml(data.title) + '</a></h1>' +
                 '<div class="blog-meta">' +
                     '<span class="blog-date"><i class="fa-regular fa-calendar"></i> ' + data.absoluteDate + '</span>' +
-                    '<span class="blog-comments"><i class="fa-regular fa-comment"></i> ' + data.commentsCount + ' Comments</span>' +
-                    '<span class="blog-views"><i class="fa-regular fa-eye"></i> ' + data.viewsCount + ' Views</span>' +
                     (actionsHtml ? '<div class="blog-actions top-actions">' + actionsHtml + '</div>' : '') +
                 '</div>' +
             '</header>' +

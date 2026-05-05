@@ -462,40 +462,56 @@ function getBlogArticleData(articleLi) {
     
     var editInfo = getEditInfo(articleLi);
     
-    // Content: clone .center .color, remove reaction widget + edit span and any preceding <br> tags
+    // ==========================================================================
+    // CONTENT EXTRACTION WITH <br> CLEANUP (NEW)
+    // ==========================================================================
     var contentDiv = articleLi.querySelector('.center .color');
     var contentHtml = '';
     if (contentDiv) {
         var clone = contentDiv.cloneNode(true);
 
-        // Remove reaction widget and its preceding <br> tags
+        // 1. Remove reaction widget and its preceding <br> tags
         var reactionWidget = clone.querySelector('.st-emoji-widget');
         if (reactionWidget) {
             var prev = reactionWidget.previousSibling;
-            while (prev && prev.nodeType === 1 && prev.tagName === 'BR') {
-                var toRemove = prev;
-                prev = prev.previousSibling;
-                toRemove.remove();
+            while (prev) {
+                if (prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR') {
+                    var toRemove = prev;
+                    prev = prev.previousSibling;
+                    toRemove.remove();
+                } else {
+                    break;
+                }
             }
             reactionWidget.remove();
         }
 
-        // Remove edit span and its preceding <br> tags
+        // 2. Remove edit span and its preceding <br> tags
         var editSpan = clone.querySelector('.edit');
         if (editSpan) {
-            var prev = editSpan.previousSibling;
-            while (prev && prev.nodeType === 1 && prev.tagName === 'BR') {
-                var toRemove = prev;
-                prev = prev.previousSibling;
-                toRemove.remove();
+            var prev2 = editSpan.previousSibling;
+            while (prev2) {
+                if (prev2.nodeType === Node.ELEMENT_NODE && prev2.tagName === 'BR') {
+                    var toRemove2 = prev2;
+                    prev2 = prev2.previousSibling;
+                    toRemove2.remove();
+                } else {
+                    break;
+                }
             }
             editSpan.remove();
+        }
+
+        // 3. Remove any trailing <br> at the very end of the clone
+        while (clone.lastChild && clone.lastChild.nodeType === Node.ELEMENT_NODE && clone.lastChild.tagName === 'BR') {
+            clone.removeChild(clone.lastChild);
         }
 
         contentHtml = clone.innerHTML.trim();
         contentHtml = transformEmbeddedLinks(contentHtml);
     }
-    
+    // ==========================================================================
+
     // Likes (points)
     var pointsPos = articleLi.querySelector('.points_pos');
     var likes = 0;
@@ -515,7 +531,6 @@ function getBlogArticleData(articleLi) {
     // Available actions
     var availableActions = getAvailableActions(articleLi, postId);
     
-    // For blog articles, we can also extract group info later from API
     return {
         postId: postId,
         mid: mid,

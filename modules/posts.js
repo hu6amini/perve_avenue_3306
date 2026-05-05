@@ -11,6 +11,7 @@
 // NEW: Summary conversion on body#send – transforms .summary into modern post cards (no actions, no footer) with a modern header
 // IMPROVED: Semantic HTML – username and avatar are anchor tags for better accessibility & SEO
 // NEW: Favicons added to text-only links inside .post-message
+// NEW: Blog article conversion – body#topic articles (.blog .article) become modern blog cards with absolute date
 
 var ForumPostsModule = (function(Utils, EventBus) {
     'use strict';
@@ -435,6 +436,221 @@ var ForumPostsModule = (function(Utils, EventBus) {
     }
 
     // ============================================================================
+    // BLOG ARTICLE DATA EXTRACTION (NEW)
+    // ============================================================================
+    function getBlogArticleData(articleLi) {
+        var postId = getPostId(articleLi);
+        var mid = null;
+        var userLink = articleLi.querySelector('.who a[href*="MID="]');
+        if (userLink) {
+            var match = userLink.href.match(/MID=(\d+)/);
+            if (match) mid = match[1];
+        }
+        var username = userLink ? userLink.textContent.trim() : 'Unknown';
+        
+        var titleLink = articleLi.querySelector('.btitle a');
+        var title = titleLink ? titleLink.textContent.trim() : '';
+        var permalink = titleLink ? titleLink.getAttribute('href') : '';
+        
+        var whenSpan = articleLi.querySelector('.when');
+        var rawDate = null;
+        if (whenSpan) {
+            rawDate = whenSpan.getAttribute('title');
+        }
+        var postDate = parseDateFromTitle(rawDate);
+        var absoluteDate = postDate ? postDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Unknown';
+        
+        var editInfo = getEditInfo(articleLi);
+        
+        // Content: clone .center .color, remove reaction widget and edit span
+        var contentDiv = articleLi.querySelector('.center .color');
+        var contentHtml = '';
+        if (contentDiv) {
+            var clone = contentDiv.cloneNode(true);
+            var reactionWidget = clone.querySelector('.st-emoji-widget');
+            if (reactionWidget) reactionWidget.remove();
+            var editSpan = clone.querySelector('.edit');
+            if (editSpan) editSpan.remove();
+            contentHtml = clone.innerHTML.trim();
+            contentHtml = transformEmbeddedLinks(contentHtml);
+        }
+        
+        // Likes (points)
+        var pointsPos = articleLi.querySelector('.points_pos');
+        var likes = 0;
+        if (pointsPos) {
+            likes = parseInt(pointsPos.textContent.replace(/[^0-9]/g,'')) || 0;
+        }
+
+        // Reactions preview (top)
+        var reactionData = getReactionData(articleLi);
+        
+        // Comments & views
+        var commentsEm = articleLi.querySelector('.replies em');
+        var commentsCount = commentsEm ? parseInt(commentsEm.textContent) || 0 : 0;
+        var viewsEm = articleLi.querySelector('.views em');
+        var viewsCount = viewsEm ? parseInt(viewsEm.textContent) || 0 : 0;
+        
+        // Available actions
+        var availableActions = getAvailableActions(articleLi, postId);
+        
+        // For blog articles, we can also extract group info later from API
+        return {
+            postId: postId,
+            mid: mid,
+            username: username,
+            title: title,
+            permalink: permalink,
+            postDate: postDate,
+            absoluteDate: absoluteDate,
+            contentHtml: contentHtml,
+            editInfo: editInfo,
+            likes: likes,
+            hasReactions: reactionData.hasReactions,
+            reactionCount: reactionData.reactionCount,
+            reactions: reactionData.reactions,
+            commentsCount: commentsCount,
+            viewsCount: viewsCount,
+            availableActions: availableActions,
+            originalPost: articleLi
+        };
+    }
+
+    // ============================================================================
+    // GENERATE MODERN BLOG CARD (NEW)
+    // ============================================================================
+    function generateBlogPost(data, apiUser) {
+        var user = apiUser || {};
+        var username = data.username;
+        var userId = data.mid;
+        var isOnline = (user.status === 'online') || false;
+        var statusClass = isOnline ? 'online' : 'offline';
+        var statusText = isOnline ? 'Online' : 'Offline';
+        var profileUrl = userId ? '/?act=Profile&MID=' + userId : '#';
+        
+        var avatarData = getUserAvatarData(user, username, userId);
+        var avatarHtml = '';
+        if (avatarData.type === 'img') {
+            avatarHtml = '<div class="post-avatar-wrapper">' +
+                '<a href="' + profileUrl + '" class="avatar-link" aria-label="Profile of ' + Utils.escapeHtml(username) + '">' +
+                '<img class="avatar-circle" src="' + avatarData.url + '" alt="Avatar of ' + Utils.escapeHtml(username) + '" width="' + CONFIG.AVATAR_SIZE + '" height="' + CONFIG.AVATAR_SIZE + '" loading="lazy">' +
+                '</a>' +
+                '<span class="status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
+                '</div>';
+        } else {
+            avatarHtml = '<div class="post-avatar-wrapper">' +
+                '<a href="' + profileUrl + '" class="avatar-link" aria-label="Profile of ' + Utils.escapeHtml(username) + '">' +
+                '<div class="initial-avatar" style="background-color: #' + avatarData.bgColor + ';" data-initial="' + Utils.escapeHtml(avatarData.initial) + '">' + Utils.escapeHtml(avatarData.initial) + '</div>' +
+                '</a>' +
+                '<span class="status-dot ' + statusClass + '" data-status="' + statusText + '" aria-label="User is ' + statusText + '"></span>' +
+                '</div>';
+        }
+        
+        var groupName = (user.group && user.group.name) ? user.group.name : 'Member';
+        var roleClass = 'role-badge';
+        var isFounder = user && user.group && (
+            (user.group.class && user.group.class.includes('founder')) ||
+            (user.group.bodyclass && user.group.bodyclass.includes('founder'))
+        );
+        if (isFounder) {
+            roleClass += ' founder';
+            groupName = 'Founder';
+        } else if (groupName.toLowerCase() === 'administrator') {
+            roleClass += ' admin';
+        } else if (groupName.toLowerCase() === 'moderator') {
+            roleClass += ' moderator';
+        } else if (groupName.toLowerCase() === 'developer') {
+            roleClass += ' developer';
+        } else {
+            roleClass += ' member';
+        }
+        var groupCssClass = 'group-' + sanitizeGroupName(groupName);
+        
+        var postCount = (user.messages !== undefined) ? user.messages : 0;
+        var reputation = (user.reputation !== undefined) ? user.reputation : 0;
+        var joinDateFormatted = '';
+        if (user.registration) {
+            var joinDate = new Date(user.registration);
+            joinDateFormatted = joinDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } else {
+            joinDateFormatted = 'Unknown join date';
+        }
+        
+        var editHtml = '';
+        if (data.editInfo && data.editInfo.relative) {
+            var editDate = data.editInfo.rawDate;
+            var isoEdit = editDate ? editDate.toISOString() : '';
+            var titleEdit = editDate ? editDate.toLocaleString() : '';
+            editHtml = '<div class="post-edit-info">' +
+                '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> ' +
+                'Edited ' +
+                '<time datetime="' + isoEdit + '" title="' + Utils.escapeHtml(titleEdit) + '">' +
+                    Utils.escapeHtml(data.editInfo.relative) +
+                '</time>' +
+            '</div>';
+        }
+        
+        var likeButton = '<button class="reaction-btn like-btn" aria-label="Like this post" data-pid="' + data.postId + '">' +
+            '<i class="fa-regular fa-thumbs-up like-icon" aria-hidden="true"></i>';
+        if (data.likes > 0) likeButton += '<span class="like-count like-count-display">' + data.likes + '</span>';
+        likeButton += '</button>';
+        
+        var reactionsHtml = generateReactionButtons({
+            postId: data.postId,
+            hasReactions: data.hasReactions,
+            reactionCount: data.reactionCount,
+            reactions: data.reactions
+        });
+        
+        var actionsHtml = '';
+        if (data.availableActions.quote) {
+            actionsHtml += '<button class="action-icon" title="Quote" aria-label="Quote this post" data-action="quote" data-pid="' + data.postId + '"><i class="fa-regular fa-quote-left"></i></button>';
+        }
+        if (data.availableActions.edit) {
+            actionsHtml += '<button class="action-icon" title="Edit" aria-label="Edit this post" data-action="edit" data-pid="' + data.postId + '"><i class="fa-regular fa-pen-to-square"></i></button>';
+        }
+        if (data.availableActions.share) {
+            actionsHtml += '<button class="action-icon" title="Share" aria-label="Share this post" data-action="share" data-pid="' + data.postId + '"><i class="fa-regular fa-share-nodes"></i></button>';
+        }
+        if (data.availableActions.report) {
+            actionsHtml += '<button class="action-icon report-action" title="Report" aria-label="Report this post" data-action="report" data-pid="' + data.postId + '"><i class="fa-regular fa-circle-exclamation"></i></button>';
+        }
+        if (data.availableActions.delete) {
+            actionsHtml += '<button class="action-icon delete-action" title="Delete" aria-label="Delete this post" data-action="delete" data-pid="' + data.postId + '"><i class="fa-regular fa-trash-can"></i></button>';
+        }
+        
+        return '<article class="post-card post-card--blog ' + groupCssClass + '" data-original-id="' + CONFIG.POST_ID_PREFIX + data.postId + '" data-post-id="' + data.postId + '">' +
+            '<header class="blog-card-header">' +
+                '<h1 class="blog-title"><a href="' + Utils.escapeHtml(data.permalink) + '">' + Utils.escapeHtml(data.title) + '</a></h1>' +
+                '<div class="blog-meta">' +
+                    '<span class="blog-date"><i class="fa-regular fa-calendar"></i> ' + data.absoluteDate + '</span>' +
+                    '<span class="blog-comments"><i class="fa-regular fa-comment"></i> ' + data.commentsCount + ' Comments</span>' +
+                    '<span class="blog-views"><i class="fa-regular fa-eye"></i> ' + data.viewsCount + ' Views</span>' +
+                    (actionsHtml ? '<div class="blog-actions top-actions">' + actionsHtml + '</div>' : '') +
+                '</div>' +
+            '</header>' +
+            '<div class="post-card-body">' +
+                '<div class="avatar-modern">' + avatarHtml + '</div>' +
+                '<div class="post-user-info">' +
+                    '<div class="user-name"><a href="' + profileUrl + '" class="user-profile-link">' + Utils.escapeHtml(username) + '</a></div>' +
+                    '<div class="user-group"><span class="' + roleClass + '">' + Utils.escapeHtml(groupName) + '</span></div>' +
+                    '<div class="user-stats">' +
+                        '<div class="user-posts"><i class="fa-regular fa-message"></i> ' + formatNumber(postCount) + ' posts</div>' +
+                        '<div class="user-reputation"><i class="fa-regular fa-thumbs-up"></i> ' + formatNumber(reputation) + ' rep</div>' +
+                        '<div class="user-joined"><i class="fa-regular fa-user-plus"></i> ' + joinDateFormatted + '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="post-content">' +
+                '<div class="post-message">' + data.contentHtml + editHtml + '</div>' +
+            '</div>' +
+            '<footer class="post-footer">' +
+                '<div class="post-reactions">' + likeButton + reactionsHtml + '</div>' +
+            '</footer>' +
+        '</article>';
+    }
+
+    // ============================================================================
     // EMBEDDED LINK TRANSFORMATION (unchanged)
     // ============================================================================
     function transformEmbeddedLinks(htmlContent) {
@@ -755,7 +971,7 @@ function convertToModernEmbed(originalContainer) {
     }
 
     // ============================================================================
-    // GENERATE MODERN CARD (with semantic <a> tags)
+    // GENERATE MODERN CARD (regular post, unchanged)
     // ============================================================================
     function formatNumber(num) {
         if (!num && num !== 0) return '0';
@@ -1018,7 +1234,7 @@ function convertToModernEmbed(originalContainer) {
     }
 
     // ============================================================================
-    // EVENT HANDLERS – removed clicks on avatar/username (now <a> handles navigation)
+    // EVENT HANDLERS – unchanged
     // ============================================================================
     function handleQuote(pid) {
         var originalPost = document.getElementById(CONFIG.POST_ID_PREFIX + pid);
@@ -1136,8 +1352,6 @@ function convertToModernEmbed(originalContainer) {
     }
 
     function attachEventHandlers() {
-        // Only need handlers for action buttons, like, share, report, delete, etc.
-        // Avatar and username are now native <a> links – no custom handler needed.
         document.addEventListener('click', function(e) {
             var btn = e.target.closest('.action-icon[data-action="quote"]');
             if (btn) { e.preventDefault(); var pid = btn.getAttribute('data-pid'); if (pid) handleQuote(pid); }
@@ -1200,7 +1414,7 @@ function convertToModernEmbed(originalContainer) {
     }
 
     // ============================================================================
-    // MAIN CONVERSION PIPELINE (regular posts)
+    // MAIN CONVERSION PIPELINE (blog article + regular posts)
     // ============================================================================
     async function convertAllPosts() {
         var container = getPostsContainer();
@@ -1208,6 +1422,23 @@ function convertToModernEmbed(originalContainer) {
         convertedPostIds.clear();
         postReactions.clear();
 
+        // Check for blog article first (only in #topic, possibly in #blog)
+        var blogArticle = document.querySelector('.blog .article');
+        if (blogArticle) {
+            var blogData = getBlogArticleData(blogArticle);
+            if (blogData.mid) await fetchUserData(blogData.mid);
+            var apiUser = blogData.mid ? userDataCache.get(blogData.mid) : null;
+            var blogCardHtml = generateBlogPost(blogData, apiUser);
+            var temp = document.createElement('div');
+            temp.innerHTML = blogCardHtml;
+            var blogCard = temp.firstElementChild;
+            container.appendChild(blogCard);
+            applyFaviconsToMessageLinks(blogCard);
+            // Mark blog article as converted to avoid processing as normal post
+            if (blogData.postId) convertedPostIds.add(blogData.postId);
+        }
+
+        // Collect regular posts (comments)
         var posts = Utils.getAllElements(CONFIG.POST_SELECTOR);
         var validPosts = [];
         for (var i = 0; i < posts.length; i++) {
@@ -1311,22 +1542,21 @@ function convertToModernEmbed(originalContainer) {
         for (var i = 0; i < postsData.length; i++) {
             var data = postsData[i];
             var apiUser = data.mid ? userDataCache.get(data.mid) : null;
-            var completeData = Object.assign({}, data, { apiUser: apiUser, postNumber: i + 1 });
+            var completeData = Object.assign({}, data, { apiUser: apiUser, postNumber: i + 1 + (blogArticle ? 1 : 0) });
             var cardHtml = generateModernPost(completeData);
             var temp = document.createElement('div');
             temp.innerHTML = cardHtml;
             var card = temp.firstElementChild;
             container.appendChild(card);
-            // Apply favicons to text links inside this card's post-message
             applyFaviconsToMessageLinks(card);
         }
         attachEventHandlers();
-        if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length });
-        console.log('[PostsModule] Ready - ' + postsData.length + ' posts converted (semantic links, favicons added)');
+        if (EventBus) EventBus.trigger('posts:ready', { count: postsData.length + (blogArticle ? 1 : 0) });
+        console.log('[PostsModule] Ready - ' + (postsData.length + (blogArticle ? 1 : 0)) + ' posts converted');
     }
 
     // ============================================================================
-    // SUMMARY CONVERSION (unchanged except adding favicons)
+    // SUMMARY CONVERSION (unchanged)
     // ============================================================================
     async function convertSummaryPosts() {
         if (document.body.id !== 'send') return;
@@ -1428,7 +1658,6 @@ function convertToModernEmbed(originalContainer) {
             temp.innerHTML = cardHtml;
             var card = temp.firstElementChild;
             container.appendChild(card);
-            // Apply favicons to summary post cards as well
             applyFaviconsToMessageLinks(card);
         }
         console.log('[PostsModule] Summary conversion ready - ' + postsData.length + ' posts displayed with favicons');

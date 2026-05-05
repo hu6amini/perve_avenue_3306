@@ -4,6 +4,7 @@
    essential styles - modern posts edition
    ACCESSIBILITY ENHANCED (v2.0)
    ADDED: Group-specific avatar borders & badges (posts + modal)
+   ADDED: Modern blog card styles (body#topic articles)
 ============================================*/
 
 /*--------------------------------------------
@@ -850,6 +851,96 @@ img {
 .post-card.group-member .avatar-circle,
 .post-card.group-member .initial-avatar {
     border-color: var(--primary-color) !important;
+}
+
+/*--------------------------------------------
+   6c. MODERN BLOG CARD STYLES (body#topic articles)
+--------------------------------------------*/
+.post-card--blog {
+    /* Extends .post-card, subtle visual difference */
+    border-color: rgba(5, 150, 105, 0.15);
+}
+
+/* Blog header: title + meta row */
+.blog-card-header {
+    padding: var(--pad-6) var(--pad-6) var(--pad-4);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.blog-title {
+    font-family: var(--font-heading);
+    font-size: var(--text-2xl);
+    font-weight: 400;
+    line-height: 1.2;
+    margin: 0 0 var(--space-sm) 0;
+    color: var(--text-primary);
+}
+
+.blog-title a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.blog-title a:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
+}
+
+.blog-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    color: var(--text-tertiary);
+    font-size: var(--text-sm);
+}
+
+.blog-date,
+.blog-comments,
+.blog-views {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-tertiary);
+}
+
+.blog-date i,
+.blog-comments i,
+.blog-views i {
+    color: var(--primary-light);
+    font-size: 0.9em;
+}
+
+.blog-actions.top-actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--space-sm);
+}
+
+/* Blog avatar area uses same post-card-body, no extra rules */
+/* Blog content uses same post-content, post-message */
+
+/* Responsive refinements for blog card */
+@media (max-width: 680px) {
+    .blog-card-header {
+        padding: var(--pad-4) var(--pad-4) var(--pad-3);
+    }
+
+    .blog-title {
+        font-size: var(--text-xl);
+    }
+
+    .blog-meta {
+        gap: var(--space-sm);
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .blog-actions.top-actions {
+        margin-left: 0;
+        align-self: flex-end;
+    }
 }
 
 /*--------------------------------------------

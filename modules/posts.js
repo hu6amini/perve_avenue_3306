@@ -634,11 +634,12 @@ var ForumPostsModule = (function(Utils, EventBus) {
                 '<div class="post-user-info">' +
                     '<div class="user-name"><a href="' + profileUrl + '" class="user-profile-link">' + Utils.escapeHtml(username) + '</a></div>' +
                     '<div class="user-group"><span class="' + roleClass + '">' + Utils.escapeHtml(groupName) + '</span></div>' +
-                    '<div class="user-stats">' +
-                        '<div class="user-posts"><i class="fa-regular fa-message"></i> ' + formatNumber(postCount) + ' posts</div>' +
-                        '<div class="user-reputation"><i class="fa-regular fa-thumbs-up"></i> ' + formatNumber(reputation) + ' rep</div>' +
-                        '<div class="user-joined"><i class="fa-regular fa-user-plus"></i> ' + joinDateFormatted + '</div>' +
-                    '</div>' +
+'<div class="user-stats">' +
+    '<div class="user-rank"><i class="fa-regular fa-medal"></i> ' + Utils.escapeHtml(data.userTitle || 'Member') + '</div>' +
+    '<div class="user-posts"><i class="fa-regular fa-message"></i> ' + formatNumber(postCount) + ' posts</div>' +
+    '<div class="user-reputation"><i class="fa-regular fa-thumbs-up"></i> ' + formatNumber(reputation) + ' rep</div>' +
+    '<div class="user-joined"><i class="fa-regular fa-user-plus"></i> ' + joinDateFormatted + '</div>' +
+'</div>' +
                 '</div>' +
             '</div>' +
             '<div class="post-content">' +

@@ -705,7 +705,7 @@ function getBlogArticleData(articleLi) {
             '<header class="blog-card-header">' +
                 '<h1 class="blog-title"><a href="' + Utils.escapeHtml(data.permalink) + '">' + Utils.escapeHtml(data.title) + '</a></h1>' +
                 '<div class="blog-meta">' +
-                    '<span class="blog-date"><i class="fa-regular fa-calendar"></i> ' + data.absoluteDate + '</span>' +
+                    '<span class="blog-date">' + data.absoluteDate + '</span>' +
                     (actionsHtml ? '<div class="blog-actions top-actions">' + actionsHtml + '</div>' : '') +
                 '</div>' +
             '</header>' +

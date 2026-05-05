@@ -375,49 +375,80 @@ function getReactionData($post) {
     var hasReactions = false;
     var reactionCount = 0;
     var reactions = [];
-    
-    // Look at all .st-emoji-container elements (blog articles have two)
-    var containers = $post.querySelectorAll('.st-emoji-container');
-    
-    containers.forEach(function(container) {
-        // Counters can be direct children (preview) or nested inside .st-emoji-info (widget)
+
+    // ---------- 1. Aggregate total counter from ALL containers ----------
+    var allContainers = $post.querySelectorAll('.st-emoji-container');
+    allContainers.forEach(function (container) {
         var counters = container.querySelectorAll('.st-emoji-counter');
-        if (counters.length > 0) {
-            hasReactions = true;
-            counters.forEach(function(counter) {
-                var count = parseInt(counter.getAttribute('data-count') || counter.textContent || 0);
+        counters.forEach(function (counter) {
+            var count = parseInt(counter.getAttribute('data-count') || counter.textContent || 0);
+            if (count > 0) {
+                hasReactions = true;
                 reactionCount += count;
-            });
-        }
-        
-        // Extract images for the preview – from .st-emoji-preview (if it exists in this container)
-        var previewDiv = container.querySelector('.st-emoji-preview');
-        if (previewDiv) {
-            var images = previewDiv.querySelectorAll('img');
-            images.forEach(function(img) {
-                var alt = img.getAttribute('alt') || '';
-                var src = img.getAttribute('src') || '';
-                if (src) reactions.push({ alt: alt, src: src, name: alt.replace(/:/g, '') });
-            });
-        }
-        
-        // If no preview, try to extract from .st-emoji-content (widget format)
-        if (!previewDiv) {
-            var contentElements = container.querySelectorAll('.st-emoji-content');
-            contentElements.forEach(function(contentEl) {
-                var img = contentEl.querySelector('img');
-                if (img) {
-                    var alt = img.getAttribute('alt') || '';
-                    var src = img.getAttribute('src') || '';
-                    if (src && !reactions.some(function(r) { return r.src === src; })) {
-                        reactions.push({ alt: alt, src: src, name: alt.replace(/:/g, '') });
-                    }
-                }
-            });
-        }
+            }
+        });
     });
-    
-    return { hasReactions: hasReactions, reactionCount: reactionCount, reactions: reactions };
+
+    // ---------- 2. Extract individual reactions ----------
+    // Prefer the widget (detailed list) if present
+    var widgetContainer = null;
+    var widget = $post.querySelector('.st-emoji-widget');
+    if (widget) {
+        widgetContainer = widget.querySelector('.st-emoji-container');
+    }
+
+    if (widgetContainer) {
+        // Walk each <li class="st-emoji-info"> inside the widget
+        var items = widgetContainer.querySelectorAll('.st-emoji-info');
+        items.forEach(function (item) {
+            var counterEl = item.querySelector('.st-emoji-counter');
+            if (!counterEl) return;
+            var count = parseInt(counterEl.getAttribute('data-count') || counterEl.textContent || 0);
+            if (count <= 0) return;
+            var contentEl = item.querySelector('.st-emoji-content');
+            if (!contentEl) return;
+            var img = contentEl.querySelector('img');
+            if (!img) return;
+            var src = img.getAttribute('src') || '';
+            var alt = img.getAttribute('alt') || '';
+            if (src) {
+                reactions.push({
+                    name: alt.replace(/:/g, ''),
+                    alt: alt,
+                    src: src,
+                    rid: contentEl.getAttribute('data-rid'),
+                    count: count
+                });
+            }
+        });
+    } else {
+        // Fallback to the preview container (regular posts)
+        var previewContainer = $post.querySelector('.st-emoji-container');
+        if (previewContainer) {
+            var previewDiv = previewContainer.querySelector('.st-emoji-preview');
+            if (previewDiv) {
+                var images = previewDiv.querySelectorAll('img');
+                images.forEach(function (img) {
+                    var src = img.getAttribute('src') || '';
+                    var alt = img.getAttribute('alt') || '';
+                    if (src) {
+                        reactions.push({
+                            name: alt.replace(/:/g, ''),
+                            alt: alt,
+                            src: src,
+                            count: reactionCount  // all points belong to this one image
+                        });
+                    }
+                });
+            }
+        }
+    }
+
+    return {
+        hasReactions: hasReactions,
+        reactionCount: reactionCount,
+        reactions: reactions
+    };
 }
     
     function getMaskedIp($post) {

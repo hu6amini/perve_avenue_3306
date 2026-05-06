@@ -1791,3 +1791,5 @@ img,
 .ff-modal.modal.report-modal {
     visibility: hidden !important;
 }
+
+iframe[title="Twitter settings iframe"] {display:none; visibility:hidden}
